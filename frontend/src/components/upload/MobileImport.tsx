@@ -37,8 +37,8 @@ export default function MobileImportPanel() {
   };
 
   const copyUrl = () => {
-    if (session?.url) {
-      navigator.clipboard.writeText(session.url);
+    if (session?.mobile_url) {
+      navigator.clipboard.writeText(session.mobile_url);
       showToast('success', '链接已复制', '可发送到手机浏览器打开');
     }
   };
@@ -119,12 +119,13 @@ export default function MobileImportPanel() {
                       <p className="text-[10px] text-gray-500">本次导入</p>
                     </div>
                     <div className="flex-1 bg-gray-800/50 rounded-xl p-3">
-                      <p className="text-[10px] text-gray-500 mt-2">同一 WiFi</p>
-                      <div className="flex items-center justify-center gap-1 text-emerald-400">
-                        <Wifi size={12} /> <span className="text-xs">局域网</span>
-                      </div>
+                      <p className="text-xs text-gray-400 mt-1 font-mono">{session.lan_ip || '...'}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">局域网 IP</p>
                     </div>
                   </div>
+                  {session.tip && (
+                    <p className="text-center text-[11px] text-amber-400/70">{session.tip}</p>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-8">

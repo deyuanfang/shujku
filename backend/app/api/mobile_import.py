@@ -38,7 +38,28 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _cleanup_sessions():
+def _get_lan_ip() -> str:
+    """Detect the machine's LAN IP address."""
+    import socket
+    try:
+        # Connect to an external address to determine the active network interface
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(1)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        pass
+    # Fallback: iterate interfaces
+    try:
+        hostname = socket.gethostname()
+        ip = socket.gethostbyname(hostname)
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    return "127.0.0.1"
     """Remove expired sessions."""
     import time
     now = time.time()
@@ -58,7 +79,12 @@ async def create_mobile_session(request: Request):
     _cleanup_sessions()
 
     session_id = str(uuid.uuid4())[:12]
-    base_url = str(request.base_url).rstrip("/")
+
+    # Use LAN IP for phone accessibility (not 127.0.0.1)
+    lan_ip = _get_lan_ip()
+    port = request.url.port or 18765
+    mobile_url = f"http://{lan_ip}:{port}/api/v1/mobile/import-page/{session_id}"
+    local_url = f"http://127.0.0.1:{port}/api/v1/mobile/import-page/{session_id}"
 
     _sessions[session_id] = {
         "id": session_id,
@@ -68,16 +94,18 @@ async def create_mobile_session(request: Request):
         "_ts": time.time(),
     }
 
-    mobile_url = f"{base_url}/api/v1/mobile/import-page/{session_id}"
-
     # Generate QR code
     qr_base64 = _generate_qr(mobile_url)
 
     return {
         "session_id": session_id,
-        "url": mobile_url,
-        "qr_code": qr_base64,  # Base64 PNG image
+        "lan_ip": lan_ip,
+        "port": port,
+        "mobile_url": mobile_url,
+        "local_url": local_url,
+        "qr_code": qr_base64,
         "expires_in_minutes": SESSION_TIMEOUT_MINUTES,
+        "tip": "手机和电脑连同一WiFi，扫描二维码即可打开" if lan_ip != "127.0.0.1" else "未检测到局域网IP，请手动输入链接",
     }
 
 
@@ -166,6 +194,48 @@ async def mobile_import_file(
         "filename": file.filename,
         "size_bytes": len(content),
         "import_count": _sessions[session_id]["import_count"],
+    }
+
+
+@router.post("/mobile/import-files/{session_id}")
+async def mobile_import_files(
+    session_id: str,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import multiple files from mobile device at once."""
+    if session_id not in _sessions:
+        return JSONResponse({"status": "expired", "message": "会话已过期"}, status_code=410)
+
+    results = []
+    for file in files:
+        try:
+            content = await file.read()
+            text = content.decode("utf-8", errors="replace")
+            result = await _import_text(
+                db, text,
+                title=file.filename or "手机上传",
+                content_type="text",
+            )
+            results.append({
+                "filename": file.filename,
+                "status": result["status"],
+                "document_id": result["document_id"],
+                "title": result["title"],
+                "size_bytes": len(content),
+            })
+            _sessions[session_id]["import_count"] = _sessions[session_id].get("import_count", 0) + 1
+        except Exception as e:
+            results.append({"filename": file.filename, "status": "error", "error": str(e)})
+
+    _sessions[session_id]["_ts"] = time.time()
+
+    return {
+        "status": "ok",
+        "imported": len([r for r in results if r["status"] == "ok"]),
+        "total": len(files),
+        "import_count": _sessions[session_id]["import_count"],
+        "files": results,
     }
 
 
@@ -355,9 +425,9 @@ input[type=file]{{display:none}}
 </div>
 
 <div class="card">
-<h2>📎 文件上传</h2>
-<button class="btn btn-outline" onclick="document.getElementById('file').click()">选择文件 (.txt/.md/.pdf/.jpg)</button>
-<input type="file" id="file" onchange="sendFile()" accept=".txt,.md,.pdf,.jpg,.jpeg,.png">
+<h2>📎 文件上传 (支持多选)</h2>
+<button class="btn btn-outline" onclick="document.getElementById('files').click()">选择文件 (.txt/.md/.pdf/.jpg)</button>
+<input type="file" id="files" multiple onchange="sendFiles()" accept=".txt,.md,.pdf,.jpg,.jpeg,.png" style="display:none">
 </div>
 
 <div class="card">
@@ -373,7 +443,7 @@ input[type=file]{{display:none}}
 
 <script>
 const API = '/api/v1/mobile/import/{session_id}';
-const FILE_API = '/api/v1/mobile/import-file/{session_id}';
+const MULTI_FILE_API = '/api/v1/mobile/import-files/{session_id}';
 let importCount = 0;
 
 function toast(msg, isError) {{
@@ -404,16 +474,32 @@ async function sendNote() {{
   }} catch(e) {{ toast('网络错误', true); }}
 }}
 
-async function sendFile() {{
-  const file = document.getElementById('file').files[0];
-  if (!file) return;
-  const form = new FormData(); form.append('file', file);
+async function sendFiles() {{
+  const input = document.getElementById('files');
+  const fileList = input.files;
+  if (!fileList || fileList.length === 0) return;
+
+  const form = new FormData();
+  for (const file of fileList) {{
+    form.append('files', file);
+  }}
+
+  toast('正在上传 ' + fileList.length + ' 个文件...');
   try {{
-    const r = await fetch(FILE_API, {{method:'POST',body:form}});
+    const r = await fetch(MULTI_FILE_API, {{method:'POST',body:form}});
     const d = await r.json();
     if (d.status === 'ok') {{
-      importCount++; document.getElementById('count').textContent = importCount;
-      toast('文件已导入: ' + d.filename);
+      importCount += d.imported;
+      document.getElementById('count').textContent = importCount;
+      input.value = '';
+      if (d.files) {{
+        const names = d.files.filter(f => f.status === 'ok').map(f => f.filename).join(', ');
+        toast('已导入 ' + d.imported + '/' + d.total + ' 个文件: ' + (names || ''));
+      }}
+      if (d.imported < d.total) {{
+        const errors = d.files.filter(f => f.status !== 'ok').map(f => f.filename + '(' + f.error + ')').join('; ');
+        if (errors) setTimeout(() => toast('失败: ' + errors, true), 3000);
+      }}
     }} else toast(d.message || '失败', true);
   }} catch(e) {{ toast('网络错误', true); }}
 }}
