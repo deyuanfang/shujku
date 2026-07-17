@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import UploadModal from '../upload/UploadModal';
 import QuickCapture from '../upload/QuickCapture';
+import MobileImport from '../upload/MobileImport';
 import { useUIStore } from '../../store';
 
 export default function AppShell() {
@@ -35,6 +36,8 @@ export default function AppShell() {
 
       {/* Quick capture floating button */}
       <QuickCapture />
+      {/* Mobile import floating button */}
+      <MobileImport />
 
       {/* Mobile overlay */}
       {sidebarOpen && (
