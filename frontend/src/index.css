@@ -34,7 +34,7 @@
 
 @layer components {
   .glass-panel {
-    @apply bg-gray-900/80 backdrop-blur-xl border border-gray-800/50 rounded-xl;
+    @apply bg-[#0a0a18]/85 backdrop-blur-xl border border-white/5 rounded-xl;
   }
 
   .btn-primary {
