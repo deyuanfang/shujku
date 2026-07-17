@@ -31,6 +31,7 @@ class Document(Base):
     char_count = Column(Integer, default=0)
     lang = Column(String, default="zh")
     category_id = Column(String, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
+    secondary_categories = Column(Text, nullable=True)  # JSON array of category IDs
     summary = Column(Text, nullable=True)         # AI-generated summary
     keywords = Column(Text, nullable=True)         # JSON array of keywords
     importance = Column(Float, default=0.5)

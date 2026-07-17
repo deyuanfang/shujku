@@ -96,6 +96,7 @@ class NLPPipeline:
                 "category_name": best_category,
                 "confidence": 0.5,
                 "keywords": keywords,
+                "secondary_categories": [],
             }
 
         # TF-IDF based classification
@@ -117,12 +118,24 @@ class NLPPipeline:
             best_idx = int(np.argmax(similarities))
             confidence = float(similarities[best_idx])
 
+            # Get top-3 categories as secondary suggestions
+            top_indices = np.argsort(similarities)[::-1][:3]
+            secondary = []
+            for idx in top_indices:
+                if idx != best_idx and similarities[idx] > 0.05:
+                    secondary.append({
+                        "id": existing_categories[idx]["id"],
+                        "name": existing_categories[idx]["name"],
+                        "confidence": float(similarities[idx]),
+                    })
+
             if confidence < 0.1:
                 return {
                     "category_id": None,
                     "category_name": "未分类",
                     "confidence": confidence,
                     "keywords": keywords,
+                    "secondary_categories": secondary,
                 }
 
             return {
@@ -130,6 +143,7 @@ class NLPPipeline:
                 "category_name": existing_categories[best_idx]["name"],
                 "confidence": confidence,
                 "keywords": keywords,
+                "secondary_categories": secondary,
             }
         except ValueError:
             return {
