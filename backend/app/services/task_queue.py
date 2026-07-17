@@ -84,6 +84,26 @@ async def _analysis_worker():
                 tasks=["summarize", "extract_entities", "extract_relationships", "suggest_tags"],
             )
 
+            # Run Data Organizer (数据整理大师)
+            organizer_result = None
+            try:
+                from app.services.data_organizer import organize_new_document
+                from app.database.models import Category, Entity, Document as DocModel
+                async with async_session() as org_db:
+                    cats = (await org_db.execute(select(Category))).scalars().all()
+                    ents = (await org_db.execute(select(Entity))).scalars().all()
+                    docs = (await org_db.execute(
+                        select(DocModel).where(DocModel.is_active == 1).order_by(DocModel.created_at.desc()).limit(10)
+                    )).scalars().all()
+                    organizer_result = await organize_new_document(
+                        title=title, content=content,
+                        existing_categories=[{"name": c.name, "document_count": c.document_count} for c in cats],
+                        existing_entities=[{"name": e.name, "type": e.type} for e in ents],
+                        recent_documents=[{"title": d.title} for d in docs if d.title != title],
+                    )
+            except Exception as e:
+                logger.warning(f"Organizer skipped: {e}")
+
             if "error" in llm_result:
                 logger.warning(f"LLM analysis skipped for {document_id}: {llm_result['error']}")
                 _task_queue.task_done()
