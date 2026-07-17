@@ -1,0 +1,33 @@
+# Web framework
+fastapi==0.115.*
+uvicorn[standard]==0.34.*
+python-multipart==0.0.*
+aiofiles==24.*
+
+# Database
+sqlalchemy==2.0.*
+alembic==1.14.*
+aiosqlite==0.20.*
+
+# Chinese NLP
+jieba==0.42.1
+scikit-learn==1.6.*
+numpy==2.2.*
+
+# LLM
+anthropic==0.42.*
+
+# Content extraction
+PyMuPDF==1.25.*
+paddleocr==2.9.*
+paddlepaddle==3.0.*
+beautifulsoup4==4.12.*
+httpx==0.28.*
+lxml==5.3.*
+Pillow==11.1.*
+
+# Utilities
+pydantic==2.10.*
+pydantic-settings==2.7.*
+python-dotenv==1.0.*
+python-Levenshtein==0.26.*
