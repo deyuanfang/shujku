@@ -15,6 +15,10 @@ async def lifespan(app: FastAPI):
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     await init_db()
 
+    # Auto-setup: ensure core dependencies
+    from app.services.auto_setup import ensure_core_deps
+    await ensure_core_deps()
+
     # Start background analysis worker
     from app.services.task_queue import start_worker
     await start_worker()
