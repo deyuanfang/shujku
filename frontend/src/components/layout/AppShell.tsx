@@ -4,6 +4,7 @@ import Header from './Header';
 import UploadModal from '../upload/UploadModal';
 import QuickCapture from '../upload/QuickCapture';
 import MobileImport from '../upload/MobileImport';
+import AIDashboard from '../knowledge/AIDashboard';
 import DotField from '../background/DotField';
 import { useUIStore } from '../../store';
 
@@ -44,6 +45,8 @@ export default function AppShell() {
       {/* Floating action buttons */}
       <QuickCapture />
       <MobileImport />
+      {/* AI status dashboard */}
+      <AIDashboard />
     </div>
   );
 }

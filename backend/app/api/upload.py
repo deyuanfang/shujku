@@ -256,7 +256,7 @@ async def upload_note(
     await db.flush()
 
     # Enqueue async LLM analysis — uses 'text' directly, not 'extracted'
-    _enqueue_if_text(doc, text)
+    await _enqueue_analysis(doc, text)
 
     return {
         "status": "ok",
