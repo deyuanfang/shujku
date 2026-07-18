@@ -53,9 +53,9 @@ async def configure_ai(provider: str = Query(...), api_key: str = Query(""),
     # Test availability with timeout
     import asyncio
     try:
-        available = await asyncio.wait_for(p.is_available(), timeout=15.0)
+        available = await asyncio.wait_for(p.is_available(), timeout=30.0)
     except asyncio.TimeoutError:
-        return {"status": "error", "message": "连接超时(15秒),请检查网络或API Key", "available": False, "provider": provider, "model": p.model}
+        return {"status": "error", "message": "连接超时(30秒),请检查网络或API Key", "available": False, "provider": provider, "model": p.model}
     except Exception as e:
         error_detail = str(e)[:200]
         return {"status": "error", "message": f"连接失败: {error_detail}", "available": False, "provider": provider, "model": p.model}

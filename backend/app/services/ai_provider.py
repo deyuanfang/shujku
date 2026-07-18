@@ -120,9 +120,19 @@ class OpenAIProvider(BaseAIProvider):
         c = self._get_client()
         if not c: return False
         try:
-            resp = await c.chat.completions.create(model=self.model, max_tokens=2, messages=[{"role":"user","content":"hi"}])
+            import asyncio
+            resp = await asyncio.wait_for(
+                c.chat.completions.create(
+                    model=self.model, max_tokens=2,
+                    messages=[{"role":"user","content":"hi"}],
+                    timeout=10,
+                ),
+                timeout=12,
+            )
             return bool(resp.choices)
-        except Exception: return False
+        except Exception as e:
+            logger.error(f"DeepSeek/OAI is_available failed: {e}")
+            return False
 
 
 # ── Ollama ───────────────────────────────────────
