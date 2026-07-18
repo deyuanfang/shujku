@@ -378,153 +378,154 @@ def _generate_qr(url: str) -> str:
 def _page_html(session_id: str, status: str) -> str:
     if status == "expired":
         return """<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <title>PersonalKB</title><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
-.card{background:#1e293b;border-radius:16px;padding:32px 24px;text-align:center;max-width:360px;width:100%}
-h1{font-size:20px;margin-bottom:8px}.sub{color:#94a3b8;font-size:14px;margin-bottom:24px}
-.btn{display:inline-block;background:#6366f1;color:#fff;border:none;padding:12px 24px;border-radius:10px;font-size:16px;text-decoration:none}
+body{font-family:-apple-system,system-ui,sans-serif;background:#0a0a14;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.card{background:#111827;border-radius:20px;padding:32px 24px;text-align:center;max-width:360px;width:100%;border:1px solid #1f2937}
+h1{font-size:20px;margin-bottom:8px}.sub{color:#9ca3af;font-size:14px;margin-bottom:24px}
 </style></head><body><div class="card">
-<h1>⏰ 会话已过期</h1><p class="sub">请重新扫描 PersonalKB 桌面端的二维码</p>
+<h1>⏰ 会话已过期</h1><p class="sub">请在桌面端重新生成二维码</p>
 </div></body></html>"""
 
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
-<title>PersonalKB · 手机导入</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PersonalKB · 导入</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:16px}}
-.header{{text-align:center;padding:12px 0 20px}}
-.header h1{{font-size:20px;font-weight:700;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}
-.header p{{color:#64748b;font-size:13px;margin-top:4px}}
-.card{{background:#1e293b;border-radius:16px;padding:20px;margin-bottom:12px;border:1px solid #334155}}
-.card h2{{font-size:15px;margin-bottom:12px;color:#cbd5e1}}
-textarea{{width:100%;min-height:120px;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;color:#e2e8f0;font-size:15px;resize:vertical;font-family:inherit}}
+*{{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a14;color:#e2e8f0;min-height:100vh;padding:12px;padding-bottom:env(safe-area-inset-bottom,20px)}}
+.header{{text-align:center;padding:16px 0 12px}}
+.header h1{{font-size:18px;font-weight:700;background:linear-gradient(135deg,#818cf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}}
+.header p{{color:#6b7280;font-size:11px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}}
+.card{{background:#111827;border-radius:16px;padding:16px 12px;border:1px solid #1f2937;text-align:center;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:8px}}
+.card:active{{background:#1e293b;border-color:#6366f1;transform:scale(.98)}}
+.card .icon{{font-size:28px;width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px}}
+.card .label{{font-size:12px;font-weight:600;color:#d1d5db}}
+.card .hint{{font-size:10px;color:#6b7280}}
+.icon-purple{{background:rgba(99,102,241,.15);color:#818cf8}}
+.icon-pink{{background:rgba(236,72,153,.15);color:#f472b6}}
+.icon-amber{{background:rgba(245,158,11,.15);color:#fbbf24}}
+.icon-emerald{{background:rgba(16,185,129,.15);color:#34d399}}
+.icon-cyan{{background:rgba(6,182,212,.15);color:#22d3ee}}
+.icon-red{{background:rgba(239,68,68,.15);color:#f87171}}
+.full-card{{background:#111827;border-radius:16px;padding:16px;border:1px solid #1f2937;margin-bottom:8px}}
+.full-card h3{{font-size:13px;color:#d1d5db;margin-bottom:8px}}
+textarea{{width:100%;min-height:80px;background:#0a0a14;border:1px solid #1f2937;border-radius:12px;padding:12px;color:#e2e8f0;font-size:14px;resize:none;font-family:inherit}}
 textarea:focus{{outline:none;border-color:#6366f1}}
-input[type=text]{{width:100%;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px 12px;color:#e2e8f0;font-size:15px;margin-bottom:8px;font-family:inherit}}
+input[type=text]{{width:100%;background:#0a0a14;border:1px solid #1f2937;border-radius:12px;padding:10px 12px;color:#e2e8f0;font-size:14px;margin-bottom:6px;font-family:inherit}}
 input[type=text]:focus{{outline:none;border-color:#6366f1}}
 input[type=file]{{display:none}}
-.btn{{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px}}
+.btn{{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;margin-top:6px;text-align:center}}
+.btn:active{{transform:scale(.97)}}
 .btn-primary{{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}}
-.btn-primary:active{{transform:scale(.98);opacity:.9}}
-.btn-outline{{background:transparent;border:1.5px solid #334155;color:#94a3b8;font-size:14px;padding:12px}}
-.btn-outline:active{{background:#1e293b}}
-.toast{{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;z-index:99;display:none;box-shadow:0 4px 20px rgba(16,185,129,.3)}}
-.toast.error{{background:#ef4444;box-shadow:0 4px 20px rgba(239,68,68,.3)}}
-.stats{{display:flex;gap:12px;margin-top:16px}}
-.stat{{flex:1;background:#0f172a;border-radius:10px;padding:12px;text-align:center}}
-.stat .num{{font-size:24px;font-weight:700;color:#818cf8}}
-.stat .lbl{{font-size:11px;color:#64748b;margin-top:2px}}
+.btn-recording{{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;animation:pulse 2s infinite}}
+@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.7}}}}
+.btn-outline{{background:transparent;border:1.5px solid #374151;color:#9ca3af;font-size:13px;padding:10px}}
+.toast{{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:99;display:none;pointer-events:none;box-shadow:0 4px 20px rgba(16,185,129,.3)}}
+.toast.error{{background:#ef4444}}
+.preview{{margin-top:8px;padding:12px;background:#0a0a14;border-radius:12px;font-size:13px;color:#9ca3af;max-height:120px;overflow-y:auto;white-space:pre-wrap;display:none}}
+.rec-status{{text-align:center;font-size:11px;color:#6b7280;margin-top:4px;display:none}}
 </style></head><body>
-<div class="header"><h1>📡 PersonalKB</h1><p>手机知识导入 · 扫描二维码连接</p></div>
+<div class="header"><h1>📡 PersonalKB</h1><p>手机知识导入</p></div>
 <div id="toast" class="toast"></div>
 
-<div class="card">
-<h2>📝 快速笔记</h2>
-<input type="text" id="title" placeholder="标题 (可选)">
-<textarea id="text" placeholder="在这里粘贴或输入内容..."></textarea>
+<!-- Action grid -->
+<div class="grid">
+<div class="card" onclick="document.getElementById('fileInput').click()">
+  <div class="icon icon-purple">📎</div><div class="label">文件上传</div><div class="hint">文档/PDF/图片</div>
+  <input type="file" id="fileInput" multiple onchange="uploadFiles(this.files)" accept=".txt,.md,.pdf,.jpg,.jpeg,.png,.gif,.webp,.mp3,.wav,.m4a,.mp4,.mov">
+</div>
+<div class="card" onclick="document.getElementById('photoInput').click()">
+  <div class="icon icon-pink">📷</div><div class="label">拍照上传</div><div class="hint">拍照或选图</div>
+  <input type="file" id="photoInput" capture="environment" accept="image/*" multiple onchange="uploadFiles(this.files)">
+</div>
+<div class="card" id="recordBtn" onclick="toggleRecord()">
+  <div class="icon icon-red" id="recIcon">🎤</div><div class="label" id="recLabel">录音</div><div class="hint" id="recHint">点击开始</div>
+</div>
+<div class="card" onclick="document.getElementById('audioInput').click()">
+  <div class="icon icon-amber">🎵</div><div class="label">音频文件</div><div class="hint">MP3/WAV等</div>
+  <input type="file" id="audioInput" accept="audio/*" multiple onchange="uploadFiles(this.files)">
+</div>
+</div>
+
+<!-- Quick note -->
+<div class="full-card">
+<h3>📝 快速笔记</h3>
+<input type="text" id="titleInput" placeholder="标题 (可选)">
+<textarea id="noteInput" placeholder="输入内容..."></textarea>
 <button class="btn btn-primary" onclick="sendNote()">发送到知识库</button>
 </div>
 
-<div class="card">
-<h2>📎 文件上传 (支持多选)</h2>
-<button class="btn btn-outline" onclick="document.getElementById('files').click()">选择文件 (.txt/.md/.pdf/.jpg)</button>
-<input type="file" id="files" multiple onchange="sendFiles()" accept=".txt,.md,.pdf,.jpg,.jpeg,.png" style="display:none">
-</div>
-
-<div class="card">
-<h2>🔗 快速链接</h2>
-<input type="text" id="url" placeholder="粘贴网页链接...">
-<button class="btn btn-primary" onclick="sendURL()">抓取网页内容</button>
-</div>
-
-<div class="stats">
-<div class="stat"><div class="num" id="count">0</div><div class="lbl">本次导入</div></div>
-<div class="stat"><div class="num" id="total">-</div><div class="lbl">知识库总计</div></div>
-</div>
+<!-- Recording status -->
+<div class="rec-status" id="recStatus">🔴 录音中... <span id="recTimer">00:00</span></div>
+<div class="preview" id="preview"></div>
 
 <script>
-const API = '/api/v1/mobile/import/{session_id}';
-const MULTI_FILE_API = '/api/v1/mobile/import-files/{session_id}';
-let importCount = 0;
+const API='/api/v1/mobile/import/{session_id}';
+const FILES_API='/api/v1/mobile/import-files/{session_id}';
+let mediaRecorder=null,recording=false,recTimer=null,recSeconds=0;
 
-function toast(msg, isError) {{
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast' + (isError ? ' error' : '');
-  t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 2500);
+function toast(m,e){{const t=document.getElementById('toast');t.textContent=m;t.className='toast'+(e?' error':'');t.style.display='block';setTimeout(()=>t.style.display='none',2000)}}
+
+async function sendNote(){{
+  const t=document.getElementById('noteInput').value.trim();
+  if(!t)return toast('请输入内容',1);
+  const ti=document.getElementById('titleInput').value.trim();
+  const f=new FormData();f.append('text',t);f.append('title',ti);f.append('content_type','note');
+  try{{const r=await fetch(API,{{method:'POST',body:f}});const d=await r.json();
+    if(d.status==='ok'){{document.getElementById('noteInput').value='';document.getElementById('titleInput').value='';toast('已保存')}}
+    else if(d.status==='duplicate')toast('已存在');else toast(d.message||'失败',1)
+  }}catch(e){{toast('网络错误',1)}}
 }}
 
-async function sendNote() {{
-  const text = document.getElementById('text').value.trim();
-  if (!text) return toast('请输入内容', true);
-  const title = document.getElementById('title').value.trim();
-  const form = new FormData();
-  form.append('text', text); form.append('title', title); form.append('content_type', 'note');
-  try {{
-    const r = await fetch(API, {{method:'POST',body:form}});
-    const d = await r.json();
-    if (d.status === 'ok') {{
-      importCount++; document.getElementById('count').textContent = importCount;
-      document.getElementById('text').value = ''; document.getElementById('title').value = '';
-      toast('已保存: ' + (d.category || '未分类'));
-    }} else if (d.status === 'duplicate') {{
-      toast('内容已存在');
-    }} else {{
-      toast(d.message || '失败', true);
-    }}
-  }} catch(e) {{ toast('网络错误', true); }}
+async function uploadFiles(files){{
+  if(!files||files.length===0)return;
+  const f=new FormData();
+  for(const file of files)f.append('files',file);
+  toast('上传中...');
+  try{{const r=await fetch(FILES_API,{{method:'POST',body:f}});const d=await r.json();
+    if(d.status==='ok')toast('已导入 '+d.imported+'/'+d.total+' 个文件');
+    else toast(d.message||'失败',1)
+  }}catch(e){{toast('上传失败',1)}}
 }}
 
-async function sendFiles() {{
-  const input = document.getElementById('files');
-  const fileList = input.files;
-  if (!fileList || fileList.length === 0) return;
-
-  const form = new FormData();
-  for (const file of fileList) {{
-    form.append('files', file);
-  }}
-
-  toast('正在上传 ' + fileList.length + ' 个文件...');
-  try {{
-    const r = await fetch(MULTI_FILE_API, {{method:'POST',body:form}});
-    const d = await r.json();
-    if (d.status === 'ok') {{
-      importCount += d.imported;
-      document.getElementById('count').textContent = importCount;
-      input.value = '';
-      if (d.files) {{
-        const names = d.files.filter(f => f.status === 'ok').map(f => f.filename).join(', ');
-        toast('已导入 ' + d.imported + '/' + d.total + ' 个文件: ' + (names || ''));
-      }}
-      if (d.imported < d.total) {{
-        const errors = d.files.filter(f => f.status !== 'ok').map(f => f.filename + '(' + f.error + ')').join('; ');
-        if (errors) setTimeout(() => toast('失败: ' + errors, true), 3000);
-      }}
-    }} else toast(d.message || '失败', true);
-  }} catch(e) {{ toast('网络错误', true); }}
+// Voice recording
+async function toggleRecord(){{
+  if(recording){{stopRecord();return}}
+  try{{
+    const stream=await navigator.mediaDevices.getUserMedia({{audio:true}});
+    mediaRecorder=new MediaRecorder(stream,{{mimeType:'audio/webm'}});
+    const chunks=[];
+    mediaRecorder.ondataavailable=e=>{{if(e.data.size>0)chunks.push(e.data)}};
+    mediaRecorder.onstop=async()=>{{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(chunks,{{type:'audio/webm'}});
+      const f=new FormData();f.append('files',blob,'recording_'+new Date().toISOString().slice(0,19)+'.webm');
+      try{{const r=await fetch(FILES_API,{{method:'POST',body:f}});const d=await r.json();
+        if(d.status==='ok')toast('录音已导入');
+      }}catch(e){{toast('上传失败',1)}}
+    }};
+    mediaRecorder.start(1000);
+    recording=true;recSeconds=0;
+    document.getElementById('recIcon').textContent='⏹';
+    document.getElementById('recLabel').textContent='停止';
+    document.getElementById('recHint').textContent='录音中...';
+    document.getElementById('recStatus').style.display='block';
+    document.getElementById('recordBtn').classList.add('btn-recording');
+    recTimer=setInterval(()=>{{recSeconds++;document.getElementById('recTimer').textContent=new Date(recSeconds*1000).toISOString().slice(14,19)}},1000);
+  }}catch(e){{toast('麦克风权限被拒绝',1)}}
 }}
 
-async function sendURL() {{
-  const url = document.getElementById('url').value.trim();
-  if (!url) return toast('请输入链接', true);
-  const form = new FormData();
-  form.append('text', url); form.append('title', url); form.append('content_type', 'url');
-  try {{
-    const r = await fetch(API, {{method:'POST',body:form}});
-    const d = await r.json();
-    if (d.status === 'ok') {{
-      importCount++; document.getElementById('count').textContent = importCount;
-      document.getElementById('url').value = '';
-      toast('链接已保存');
-    }} else toast(d.message || '失败', true);
-  }} catch(e) {{ toast('网络错误', true); }}
+function stopRecord(){{
+  if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+  recording=false;clearInterval(recTimer);
+  document.getElementById('recIcon').textContent='🎤';
+  document.getElementById('recLabel').textContent='录音';
+  document.getElementById('recHint').textContent='点击开始';
+  document.getElementById('recStatus').style.display='none';
+  document.getElementById('recordBtn').classList.remove('btn-recording');
 }}
-
-// Fetch total doc count
-fetch('/api/v1/stats').then(r=>r.json()).then(d=>{{
-  document.getElementById('total').textContent = d.total_documents || 0;
-}});
 </script></body></html>"""
