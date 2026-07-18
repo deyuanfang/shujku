@@ -5,7 +5,7 @@ import UploadModal from '../upload/UploadModal';
 import QuickCapture from '../upload/QuickCapture';
 import MobileImport from '../upload/MobileImport';
 import AIDashboard from '../knowledge/AIDashboard';
-import DotField from '../background/DotField';
+import LetterGlitch from '../background/LetterGlitch';
 import { useUIStore } from '../../store';
 
 export default function AppShell() {
@@ -14,11 +14,14 @@ export default function AppShell() {
 
   return (
     <div className="flex h-screen bg-[#0a0a14] overflow-hidden relative">
-      {/* Animated dot background */}
-      <DotField dotRadius={1.0} dotSpacing={30} bulgeStrength={40} glowRadius={100}
-        sparkle={false} waveAmplitude={0.3}
-        gradientFrom="rgba(99, 102, 241, 0.12)" gradientTo="rgba(139, 92, 246, 0.06)"
-        glowColor="#0f0f23" />
+      {/* Letter glitch background */}
+      <LetterGlitch
+        glitchColors={['#1e1b4b', '#312e81', '#6366f1']}
+        glitchSpeed={45}
+        centerVignette
+        outerVignette
+        smooth
+      />
 
       {/* Sidebar — collapses to 0 width when closed */}
       <aside
