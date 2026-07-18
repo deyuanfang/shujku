@@ -24,6 +24,7 @@ async def get_db() -> AsyncSession:
 async def init_db():
     """Create all tables and FTS5 index. Call on startup."""
     from app.database.models import Base, FTS5_SETUP_SQL
+    from app.services.ai_action_logger import AIActionLog  # ensure table creation
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

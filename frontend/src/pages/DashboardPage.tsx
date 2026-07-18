@@ -5,8 +5,10 @@ import {
   Plus, Search, Zap, ArrowRight, Sparkles,
   FileCode, FileImage, Globe, StickyNote,
 } from 'lucide-react';
-import { useStatsStore, useDocumentStore, useCategoryStore, useUIStore } from '../store';
+import { useStatsStore, useDocumentStore, useCategoryStore, useUIStore, useNotificationStore } from '../store';
 import Folder from '../components/common/Folder';
+import api from '../services/api';
+import { useState } from 'react';
 
 const TYPE_ICONS: Record<string, any> = {
   text: FileText, markdown: FileCode, pdf: FileText,
@@ -33,11 +35,19 @@ export default function DashboardPage() {
   const fetchDocuments = useDocumentStore((s) => s.fetchDocuments);
   const openUpload = useUIStore((s) => s.openUpload);
   const navigate = useNavigate();
+  const [aiLogs, setAiLogs] = useState<any[]>([]);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   useEffect(() => {
     fetchStats();
     fetchCategories();
     fetchDocuments({ page_size: 8, sort_by: 'created_at', sort_order: 'desc' });
+    // Fetch recent AI activity
+    api.get('/monitor/ai-logs?limit=3').then(r => setAiLogs(r.data.logs || [])).catch(() => {});
+    const aiInterval = setInterval(() => {
+      api.get('/monitor/ai-logs?limit=3').then(r => setAiLogs(r.data.logs || [])).catch(() => {});
+    }, 10000);
+    return () => clearInterval(aiInterval);
   }, []);
 
   const CATEGORY_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#06b6d4'];
@@ -147,6 +157,33 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* AI Activity */}
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Sparkles size={18} className="text-primary-400" /> AI 活动
+          {unreadCount > 0 && <span className="badge badge-warning text-[10px]">{unreadCount} 提醒</span>}
+        </h2>
+        {aiLogs.length === 0 ? (
+          <div className="glass-panel p-6 text-center">
+            <Sparkles size={24} className="mx-auto mb-2 text-gray-600" />
+            <p className="text-gray-500 text-sm">暂无 AI 活动，上传文档后自动分析</p>
+          </div>
+        ) : (
+          <div className="glass-panel divide-y divide-white/[0.04]">
+            {aiLogs.map((log: any) => (
+              <div key={log.id} className="flex items-center gap-3 px-4 py-2.5">
+                <span className={`w-2 h-2 rounded-full ${log.status==='success'?'bg-emerald-400':log.status==='failed'?'bg-red-400':'bg-primary-400 animate-pulse'}`}/>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-300 truncate">{log.action_type} <span className="text-gray-600">{log.provider}</span></p>
+                  {log.result_summary && <p className="text-[10px] text-gray-500 truncate">{log.result_summary}</p>}
+                </div>
+                <span className="text-[10px] text-gray-700">{log.duration_ms}ms</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -164,6 +164,14 @@ async def _store_analysis_results(
     # Update knowledge graph with entities, relationships, tags
     await update_knowledge_graph(db, document, llm_result)
 
+    # Store summary and keywords directly on the document for frontend access
+    if llm_result.get("summary"):
+        import json as _json
+        document.summary = _json.dumps({"summary": llm_result["summary"], "key_points": llm_result.get("key_points", [])}, ensure_ascii=False)
+    if llm_result.get("suggested_tags"):
+        import json as _json
+        document.keywords = _json.dumps(llm_result["suggested_tags"], ensure_ascii=False)
+
     # Update document's importance based on entity count
     entity_count = len(llm_result.get("entities", []))
     if entity_count > 0:
