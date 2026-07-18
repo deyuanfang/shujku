@@ -34,3 +34,4 @@ frontend/release/
 # OS
 .DS_Store
 Thumbs.db
+.test_apikey
