@@ -15,9 +15,9 @@ export default function AppShell() {
   return (
     <div className="flex h-screen bg-[#0a0a14] overflow-hidden relative">
       {/* Animated dot background */}
-      <DotField dotRadius={1.8} dotSpacing={18} bulgeStrength={60} glowRadius={140}
-        sparkle waveAmplitude={0.6}
-        gradientFrom="rgba(99, 102, 241, 0.25)" gradientTo="rgba(139, 92, 246, 0.14)"
+      <DotField dotRadius={1.0} dotSpacing={30} bulgeStrength={40} glowRadius={100}
+        sparkle={false} waveAmplitude={0.3}
+        gradientFrom="rgba(99, 102, 241, 0.12)" gradientTo="rgba(139, 92, 246, 0.06)"
         glowColor="#0f0f23" />
 
       {/* Sidebar — collapses to 0 width when closed */}

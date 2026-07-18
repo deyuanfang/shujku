@@ -4,9 +4,9 @@ import './DotField.css';
 const TWO_PI = Math.PI * 2;
 
 const DotField = memo(({
-  dotRadius = 1.2, dotSpacing = 22, cursorRadius = 400, bulgeStrength = 60,
-  glowRadius = 140, sparkle = false, waveAmplitude = 0.5,
-  gradientFrom = 'rgba(99, 102, 241, 0.18)', gradientTo = 'rgba(139, 92, 246, 0.10)',
+  dotRadius = 1.0, dotSpacing = 30, cursorRadius = 350, bulgeStrength = 40,
+  glowRadius = 100, sparkle = false, waveAmplitude = 0.3,
+  gradientFrom = 'rgba(99, 102, 241, 0.12)', gradientTo = 'rgba(139, 92, 246, 0.06)',
   glowColor = '#0f0f23', ...rest
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);

@@ -222,10 +222,18 @@ export default function GalaxyView({ nodes, edges, onNodeClick, height = 600 }: 
     });
 
     // Cool down and stop
-    simulation.alpha(1).restart();
-    setTimeout(() => simulation.stop(), 8000);
+    // Keep simulation alive with gentle reheating for continuous orbit animation
+    simulation.alpha(0.8).restart();
+    const reheatInterval = setInterval(() => {
+      if (simulation.alpha() < 0.02) {
+        simulation.alpha(0.05).restart();
+      }
+    }, 3000);
 
-    return () => { simulation.stop(); };
+    return () => {
+      simulation.stop();
+      clearInterval(reheatInterval);
+    };
   }, [nodes, edges, height]);
 
   return (
