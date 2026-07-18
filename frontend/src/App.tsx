@@ -8,6 +8,7 @@ import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
 import SearchPage from './pages/SearchPage';
 import SettingsPage from './pages/SettingsPage';
 import StoragePage from './pages/StoragePage';
+import SetupWizardPage from './pages/SetupWizardPage';
 import ToastContainer, { useToastStore } from './components/common/Toast';
 import { useCategoryStore, useNotificationStore } from './store';
 
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/storage" element={<StoragePage />} />
+          <Route path="/setup" element={<SetupWizardPage />} />
         </Route>
       </Routes>
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
