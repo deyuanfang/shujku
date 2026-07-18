@@ -1,8 +1,18 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Upload, Plus, Folder, HardDrive } from 'lucide-react';
+import { Upload, Plus, Folder, LayoutDashboard, FileText, GitGraph, Search, Database, HardDrive, Settings } from 'lucide-react';
 import { useEffect } from 'react';
-import LineSidebar from '../common/LineSidebar';
+import FlowingMenu from '../common/FlowingMenu';
 import { useCategoryStore, useUIStore } from '../../store';
+
+const NAV_ITEMS = [
+  { text: '仪表盘', link: '/', icon: <LayoutDashboard size={15} /> },
+  { text: '文档', link: '/documents', icon: <FileText size={15} /> },
+  { text: '图谱', link: '/graph', icon: <GitGraph size={15} /> },
+  { text: '搜索', link: '/search', icon: <Search size={15} /> },
+  { text: '文件', link: '/files', icon: <HardDrive size={15} /> },
+  { text: '存储', link: '/storage', icon: <Database size={15} /> },
+  { text: '设置', link: '/settings', icon: <Settings size={15} /> },
+];
 
 export default function Sidebar() {
   const categories = useCategoryStore((s) => s.categories);
@@ -13,27 +23,17 @@ export default function Sidebar() {
 
   useEffect(() => { fetchCategories(); }, []);
 
-  const navItems = ['仪表盘', '文档', '图谱', '搜索', '文件', '存储', '设置'];
-  const navRoutes: Record<string, string> = {
-    '仪表盘': '/', '文档': '/documents', '图谱': '/graph',
-    '搜索': '/search', '文件': '/files', '存储': '/storage', '设置': '/settings',
-  };
-
   const currentIndex = (() => {
     const path = location.pathname;
-    if (path === '/') return 0;
-    if (path.startsWith('/documents')) return 1;
-    if (path.startsWith('/graph')) return 2;
-    if (path.startsWith('/search')) return 3;
-    if (path.startsWith('/storage')) return 4;
-    if (path.startsWith('/settings')) return 5;
+    const map: Record<string, number> = {
+      '/': 0, '/documents': 1, '/graph': 2, '/search': 3, '/files': 4, '/storage': 5, '/settings': 6,
+    };
+    if (map[path] !== undefined) return map[path];
+    for (const [p, i] of Object.entries(map)) {
+      if (p !== '/' && path.startsWith(p)) return i;
+    }
     return null;
   })();
-
-  const handleNavClick = (index: number, label: string) => {
-    const route = navRoutes[label];
-    if (route) navigate(route);
-  };
 
   return (
     <div className="h-full flex flex-col bg-[#060610]/98 border-r border-white/[0.04] backdrop-blur-xl">
@@ -59,31 +59,22 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Animated nav */}
-      <div className="flex-1 px-3 py-2">
-        <LineSidebar
-          items={navItems}
-          accentColor="#818cf8"
+      {/* Flowing menu navigation */}
+      <div className="flex-1">
+        <FlowingMenu
+          items={NAV_ITEMS}
+          speed={12}
           textColor="#6b7280"
-          markerColor="#374151"
-          showIndex
-          showMarker
-          proximityRadius={90}
-          maxShift={22}
-          falloff="smooth"
-          markerLength={44}
-          markerGap={4}
-          tickScale={0.4}
-          scaleTick
-          itemGap={8}
-          fontSize={0.88}
-          smoothing={130}
-          defaultActive={currentIndex}
-          onItemClick={handleNavClick}
+          bgColor="transparent"
+          marqueeBgColor="#6366f1"
+          marqueeTextColor="#fff"
+          borderColor="rgba(255,255,255,0.04)"
+          activeIndex={currentIndex}
+          onItemClick={(idx, item) => navigate(item.link)}
         />
       </div>
 
-      {/* Categories (simple, below animated nav) */}
+      {/* Categories */}
       <div className="px-4 pb-4 border-t border-white/[0.04]">
         <div className="flex items-center justify-between mt-3 mb-1.5">
           <span className="text-[9px] font-semibold text-gray-600 uppercase tracking-widest">分类</span>
@@ -104,10 +95,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Version */}
-      <div className="px-4 py-2.5 border-t border-white/[0.04] text-[9px] text-gray-700">
-        v0.3.0
-      </div>
+      <div className="px-4 py-2.5 border-t border-white/[0.04] text-[9px] text-gray-700">v0.3.0</div>
     </div>
   );
 }

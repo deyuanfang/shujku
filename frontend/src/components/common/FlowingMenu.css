@@ -1,0 +1,86 @@
+.menu-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.menu__item {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  border-top: 1px solid;
+}
+
+.menu__item:first-child { border-top: none; }
+
+.menu__item-link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 2rem;
+  height: 100%;
+  position: relative;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  gap: 0.75rem;
+}
+
+.marquee {
+  position: absolute;
+  top: 0; left: 0;
+  overflow: hidden;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  transform: translate3d(0, 101%, 0);
+}
+
+.marquee__inner-wrap {
+  height: 100%; width: 100%;
+  overflow: hidden;
+}
+
+.marquee__inner {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 100%;
+  width: fit-content;
+  will-change: transform;
+}
+
+.marquee__part {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.marquee span {
+  white-space: nowrap;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0 2vw;
+}
+
+.marquee__img {
+  width: 120px;
+  height: 5vh;
+  margin: 1em 1vw;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: 50% 50%;
+}
