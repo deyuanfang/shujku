@@ -101,7 +101,7 @@ async def upload_file(
     # Create document
     doc = Document(
         id=str(uuid.uuid4()),
-        title=title or extracted["title"],
+        title=title or file.filename or extracted.get("title", "未命名"),
         content_type=content_type,
         source_path=str(saved_path),
         original_hash=file_hash,

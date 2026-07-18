@@ -7,8 +7,8 @@ async def parse_text_file(file_path: Path) -> dict:
     """Extract plain text from .txt or .md files."""
     content = file_path.read_text(encoding="utf-8")
 
-    # Extract title from first heading or filename
-    title = file_path.stem
+    # Try to extract title from first heading, otherwise use filename
+    title = file_path.name  # keep full filename
     for line in content.split("\n"):
         line = line.strip()
         if line.startswith("# "):

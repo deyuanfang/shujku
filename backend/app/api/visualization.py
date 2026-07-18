@@ -7,9 +7,114 @@ from sqlalchemy import select
 from app.database.connection import get_db
 from app.database.models import (
     Document, Category, Entity, Tag, KnowledgeNode, KnowledgeEdge,
+    DocumentEntity,
 )
 
 router = APIRouter()
+
+
+@router.get("/knowledge-tree")
+async def get_knowledge_tree(db: AsyncSession = Depends(get_db)):
+    """Build a knowledge-point tree: entities as branches, documents as leaves."""
+    import json
+
+    # Get all entities with their documents
+    ent_result = await db.execute(
+        select(Entity, DocumentEntity, Document)
+        .join(DocumentEntity, DocumentEntity.entity_id == Entity.id)
+        .join(Document, Document.id == DocumentEntity.document_id)
+        .where(Document.is_active == 1)
+    )
+    rows = ent_result.fetchall()
+
+    # Group: entity → documents
+    entity_docs: dict[str, dict] = {}
+    for entity, de, doc in rows:
+        if entity.id not in entity_docs:
+            entity_docs[entity.id] = {
+                "id": entity.id,
+                "label": entity.name,
+                "type": "entity",
+                "entity_type": entity.type,
+                "color": _entity_color(entity.type),
+                "children": [],
+                "doc_count": 0,
+            }
+        entity_docs[entity.id]["children"].append({
+            "id": doc.id,
+            "label": doc.title,
+            "type": "document",
+            "content_type": doc.content_type,
+            "importance": doc.importance,
+            "word_count": doc.word_count,
+        })
+        entity_docs[entity.id]["doc_count"] += 1
+
+    # Sort entities by doc count
+    sorted_entities = sorted(entity_docs.values(), key=lambda e: e["doc_count"], reverse=True)
+
+    # Group by entity type
+    type_groups: dict[str, dict] = {}
+    for ent in sorted_entities:
+        etype = ent.get("entity_type", "other")
+        if etype not in type_groups:
+            type_groups[etype] = {
+                "id": f"type-{etype}",
+                "label": _type_label(etype),
+                "type": "category",
+                "color": _entity_color(etype),
+                "children": [],
+            }
+        type_groups[etype]["children"].append(ent)
+
+    tree_children = list(type_groups.values())
+
+    # Add uncategorized docs (docs with no entities)
+    all_docs = (await db.execute(
+        select(Document).where(Document.is_active == 1)
+    )).scalars().all()
+    doc_with_entities = {doc.id for _, _, doc in rows}
+    uncategorized = [d for d in all_docs if d.id not in doc_with_entities]
+    if uncategorized:
+        uncat_children = [
+            {
+                "id": d.id, "label": d.title, "type": "document",
+                "content_type": d.content_type, "importance": d.importance,
+                "word_count": d.word_count,
+            }
+            for d in uncategorized[:30]
+        ]
+        tree_children.append({
+            "id": "uncategorized-knowledge",
+            "label": "未归类知识点",
+            "type": "category",
+            "color": "#6b7280",
+            "children": uncat_children,
+        })
+
+    return {
+        "tree": {
+            "id": "root",
+            "label": "知识体系",
+            "children": tree_children,
+        }
+    }
+
+
+def _entity_color(etype: str) -> str:
+    colors = {
+        "person": "#f59e0b", "organization": "#3b82f6", "location": "#10b981",
+        "concept": "#8b5cf6", "event": "#ef4444", "technology": "#06b6d4",
+    }
+    return colors.get(etype, "#9ca3af")
+
+
+def _type_label(etype: str) -> str:
+    labels = {
+        "person": "人物", "organization": "组织", "location": "地点",
+        "concept": "概念", "event": "事件", "technology": "技术",
+    }
+    return labels.get(etype, etype)
 
 
 @router.get("/tree")
