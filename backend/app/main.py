@@ -23,6 +23,10 @@ async def lifespan(app: FastAPI):
     from app.services.task_queue import start_worker
     await start_worker()
 
+    # Start folder watcher (auto-import from watched directories)
+    from app.services.folder_watcher import start_watcher
+    await start_watcher()
+
     yield
 
     # Shutdown: stop background worker
