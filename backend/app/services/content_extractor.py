@@ -5,6 +5,7 @@ from app.services.parsers.text_parser import parse_text_file
 from app.services.parsers.pdf_parser_enhanced import parse_pdf_enhanced
 from app.services.parsers.image_parser_enhanced import parse_image_enhanced
 from app.services.parsers.video_parser import parse_video
+from app.services.parsers.audio_parser import parse_audio
 from app.services.parsers.web_scraper import parse_url
 
 
@@ -17,6 +18,8 @@ EXT_MAPPING = {
     ".mp4": "video", ".avi": "video", ".mkv": "video",
     ".mov": "video", ".webm": "video", ".flv": "video",
     ".wmv": "video", ".m4v": "video",
+    ".mp3": "audio", ".wav": "audio", ".flac": "audio",
+    ".m4a": "audio", ".aac": "audio", ".ogg": "audio", ".opus": "audio",
     ".doc": "pdf", ".docx": "pdf", ".ppt": "pdf", ".pptx": "pdf",
     ".csv": "text", ".json": "text", ".xml": "text",
 }
@@ -57,6 +60,9 @@ async def extract_content(
 
     if content_type == "video":
         return await parse_video(file_path)
+
+    if content_type == "audio":
+        return await parse_audio(file_path)
 
     raise ValueError(f"Unsupported content type: {content_type}")
 
