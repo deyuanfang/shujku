@@ -125,9 +125,9 @@ class OpenAIProvider(BaseAIProvider):
                 c.chat.completions.create(
                     model=self.model, max_tokens=2,
                     messages=[{"role":"user","content":"hi"}],
-                    timeout=10,
+                    timeout=30,  # generous timeout for slow APIs
                 ),
-                timeout=12,
+                timeout=35,
             )
             return bool(resp.choices)
         except Exception as e:

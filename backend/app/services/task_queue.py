@@ -66,6 +66,8 @@ async def enqueue_analysis(document_id: str, title: str, content: str):
         "document_id": document_id,
         "title": title,
         "content": content,
+        "retry_count": 0,
+        "max_retries": 3,
     })
     logger.info(f"Enqueued analysis for document: {document_id}")
 
@@ -83,24 +85,25 @@ async def _analysis_worker():
             document_id = task["document_id"]
             title = task["title"]
             content = task["content"]
+            retry_count = task.get("retry_count", 0)
+            max_retries = task.get("max_retries", 3)
 
-            logger.info(f"Starting analysis for: {document_id}")
+            logger.info(f"Starting analysis for: {document_id} (attempt {retry_count + 1}/{max_retries + 1})")
 
-            # Log: AI action started
             from app.services.ai_action_logger import log_action
             from app.database.connection import async_session as _as
-            start_time = __import__("time").time()
+            import time as _time
+            start_time = _time.time()
 
-            # Run LLM analysis
+            # Run LLM analysis with extended timeout wrapper
             llm_result = await analyze_document(
                 title=title, content=content,
                 tasks=["summarize", "extract_entities", "extract_relationships", "suggest_tags"],
             )
+            duration = int((_time.time() - start_time) * 1000)
 
-            duration = int((__import__("time").time() - start_time) * 1000)
-
-            # Log: AI action completed
-            provider = getattr(getattr(llm_result, 'provider', None), 'name', 'unknown') if hasattr(llm_result, 'provider') else 'auto'
+            # Log result
+            provider = "auto"
             if "error" not in llm_result:
                 await log_action(_as, document_id, "analyze", provider,
                     getattr(settings, 'llm_model', ''), "success",
@@ -108,8 +111,21 @@ async def _analysis_worker():
                     summary=f"summary={'YES' if llm_result.get('summary') else 'NO'}, entities={len(llm_result.get('entities',[]))}, tags={len(llm_result.get('suggested_tags',[]))}"
                 )
             else:
+                err = llm_result.get("error", "")
                 await log_action(_as, document_id, "analyze", "auto", "", "failed",
-                    duration_ms=duration, error=llm_result.get("error", ""))
+                    duration_ms=duration, error=err)
+
+                # Retry on failure
+                if retry_count < max_retries:
+                    wait = (retry_count + 1) * 5  # 5s, 10s, 15s backoff
+                    logger.info(f"Retrying {document_id} in {wait}s (attempt {retry_count + 2})")
+                    await asyncio.sleep(wait)
+                    await _task_queue.put({
+                        "document_id": document_id, "title": title, "content": content,
+                        "retry_count": retry_count + 1, "max_retries": max_retries,
+                    })
+                    _task_queue.task_done()
+                    continue
 
             # Run Data Organizer (数据整理大师)
             organizer_result = None
