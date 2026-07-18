@@ -57,13 +57,8 @@ async def update_knowledge_graph(
     for entity in created_entities:
         entity.mention_count += 1
 
-    # ── 2. Store entity list on document ──────────
-    document.entities = json.dumps(
-        [{"name": e.name, "type": e.type} for e in created_entities],
-        ensure_ascii=False,
-    )
-
-    # ── 3. Create Relationships ───────────────────
+    # Entities already linked via DocumentEntity table above
+    # ── 2. Create Relationships ───────────────────
     relationships_raw = llm_result.get("relationships", [])
     entity_name_to_id = {e.name: e.id for e in created_entities}
     # Also look up existing entities by name
