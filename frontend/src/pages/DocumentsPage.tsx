@@ -26,7 +26,16 @@ export default function DocumentsPage() {
   const [filterType, setFilterType] = useState('');
   const [quickSearch, setQuickSearch] = useState('');
   const [clearing, setClearing] = useState(false);
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(['__all__']));
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+
+  // Auto-expand all categories when documents load
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const doc of documents) {
+      ids.add(doc.category_id || '__uncat__');
+    }
+    if (ids.size > 0) setExpandedCats(ids);
+  }, [documents.length]);
 
   useEffect(() => {
     fetchDocuments({
@@ -74,7 +83,7 @@ export default function DocumentsPage() {
     catMap.get(cid)!.docs.push(doc);
   }
 
-  const allExpanded = expandedCats.has('__all__');
+  const allExpanded = catMap.size > 0 && [...catMap.keys()].every((k) => expandedCats.has(k));
   const sortedCats = [...catMap.entries()].sort((a, b) => b[1].docs.length - a[1].docs.length);
 
   return (
@@ -86,7 +95,10 @@ export default function DocumentsPage() {
           <p className="text-gray-500 text-sm mt-0.5">{total} 篇 · {catMap.size} 个分类</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setExpandedCats(allExpanded ? new Set() : new Set(['__all__']))}
+          <button onClick={() => {
+            if (allExpanded) { setExpandedCats(new Set()); }
+            else { setExpandedCats(new Set([...catMap.keys()])); }
+          }}
             className="text-xs text-gray-500 hover:text-gray-300 transition-all">
             {allExpanded ? '折叠全部' : '展开全部'}
           </button>
