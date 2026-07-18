@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Upload, Plus, Folder } from 'lucide-react';
+import { Upload, Plus, Folder, HardDrive } from 'lucide-react';
 import { useEffect } from 'react';
 import LineSidebar from '../common/LineSidebar';
 import { useCategoryStore, useUIStore } from '../../store';
@@ -13,11 +13,10 @@ export default function Sidebar() {
 
   useEffect(() => { fetchCategories(); }, []);
 
-  const navItems = ['仪表盘', '文档', '图谱', '搜索', '存储', '设置'];
-
+  const navItems = ['仪表盘', '文档', '图谱', '搜索', '文件', '存储', '设置'];
   const navRoutes: Record<string, string> = {
     '仪表盘': '/', '文档': '/documents', '图谱': '/graph',
-    '搜索': '/search', '存储': '/storage', '设置': '/settings',
+    '搜索': '/search', '文件': '/files', '存储': '/storage', '设置': '/settings',
   };
 
   const currentIndex = (() => {

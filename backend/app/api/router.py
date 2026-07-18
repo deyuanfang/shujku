@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api import documents, categories, search, stats, changes, visualization, upload, settings, storage, knowledge_query, export_import, mobile_import, organizer_api, setup_api, monitor_api, manage_api
+from app.api import documents, categories, search, stats, changes, visualization, upload, settings, storage, knowledge_query, export_import, mobile_import, organizer_api, setup_api, monitor_api, manage_api, file_manager_api
 
 api_router = APIRouter()
 
@@ -19,3 +19,4 @@ api_router.include_router(organizer_api.router, prefix="/organize", tags=["Organ
 api_router.include_router(setup_api.router, prefix="/system", tags=["System"])
 api_router.include_router(monitor_api.router, prefix="/monitor", tags=["Monitor"])
 api_router.include_router(manage_api.router, prefix="", tags=["Manage"])
+api_router.include_router(file_manager_api.router, prefix="/files", tags=["Files"])
