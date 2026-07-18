@@ -77,11 +77,30 @@ async def _analysis_worker():
 
             logger.info(f"Starting analysis for: {document_id}")
 
+            # Log: AI action started
+            from app.services.ai_action_logger import log_action
+            from app.database.connection import async_session as _as
+            start_time = __import__("time").time()
+
             # Run LLM analysis
             llm_result = await analyze_document(
-                title=title,
-                content=content,
+                title=title, content=content,
                 tasks=["summarize", "extract_entities", "extract_relationships", "suggest_tags"],
+            )
+
+            duration = int((__import__("time").time() - start_time) * 1000)
+
+            # Log: AI action completed
+            provider = getattr(getattr(llm_result, 'provider', None), 'name', 'unknown') if hasattr(llm_result, 'provider') else 'auto'
+            if "error" not in llm_result:
+                await log_action(_as, document_id, "analyze", provider,
+                    getattr(settings, 'llm_model', ''), "success",
+                    duration_ms=duration,
+                    summary=f"summary={'YES' if llm_result.get('summary') else 'NO'}, entities={len(llm_result.get('entities',[]))}, tags={len(llm_result.get('suggested_tags',[]))}"
+                )
+            else:
+                await log_action(_as, document_id, "analyze", "auto", "", "failed",
+                    duration_ms=duration, error=llm_result.get("error", ""))
             )
 
             # Run Data Organizer (数据整理大师)
