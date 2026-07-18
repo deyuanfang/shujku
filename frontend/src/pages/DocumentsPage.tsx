@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { FileText, Trash2, Search, StickyNote, Globe, FileCode, FileImage } from 'lucide-react';
+import { FileText, Trash2, Search, StickyNote, Globe, FileCode, FileImage, AlertTriangle } from 'lucide-react';
 import { useDocumentStore } from '../store';
+import { showToast } from '../components/common/Toast';
+import api from '../services/api';
 
 const TYPE_ICONS: Record<string, any> = {
   text: FileText, markdown: FileCode, pdf: FileText, image: FileImage, url: Globe, note: StickyNote,
@@ -21,6 +23,20 @@ export default function DocumentsPage() {
   const { documents, total, isLoading, fetchDocuments, deleteDocument } = useDocumentStore();
   const [filterType, setFilterType] = useState('');
   const [quickSearch, setQuickSearch] = useState('');
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearAll = async () => {
+    if (!confirm('⚠️ 确定要清空所有文档吗？此操作不可撤销！\n\n输入"确认清空所有数据"来继续：')) return;
+    const phrase = prompt('请输入: 确认清空所有数据');
+    if (phrase !== '确认清空所有数据') { showToast('error', '短语不匹配，已取消'); return; }
+    setClearing(true);
+    try {
+      await api.post('/manage/clear-all', null, { params: { confirm: '确认清空所有数据' } });
+      showToast('success', '所有数据已清空');
+      fetchDocuments({ page_size: 50, sort_by: 'updated_at', sort_order: 'desc' });
+    } catch (err: any) { showToast('error', '清空失败', err.message); }
+    setClearing(false);
+  };
 
   useEffect(() => {
     fetchDocuments({
@@ -39,14 +55,18 @@ export default function DocumentsPage() {
           <h1 className="text-2xl font-bold text-white">文档</h1>
           <p className="text-gray-500 text-sm mt-0.5">{total} 篇</p>
         </div>
-        <div className="relative w-56">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input
-            value={quickSearch}
-            onChange={(e) => setQuickSearch(e.target.value)}
-            placeholder="快速筛选..."
-            className="w-full pl-8 pr-3 py-1.5 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-primary-500"
-          />
+        <div className="flex items-center gap-2">
+          <button onClick={handleClearAll} disabled={clearing || total === 0}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg
+                       bg-red-600/10 border border-red-600/20 text-red-400
+                       hover:bg-red-600/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+            <AlertTriangle size={12} /> {clearing ? '清空中...' : '清空全部'}
+          </button>
+          <div className="relative w-48">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input value={quickSearch} onChange={(e) => setQuickSearch(e.target.value)}
+              placeholder="快速筛选..." className="w-full pl-8 pr-3 py-1.5 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-primary-500" />
+          </div>
         </div>
       </div>
 

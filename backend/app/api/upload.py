@@ -14,6 +14,7 @@ from app.database.models import Document, Category
 from app.services.content_extractor import extract_content, detect_content_type
 from app.services.file_handler import save_upload_file
 from app.services.nlp_pipeline import nlp_pipeline
+from app.services.category_manager import auto_categorize_document
 from app.utils.hash_utils import compute_text_hash
 
 router = APIRouter()
@@ -23,11 +24,39 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _enqueue_if_text(doc: Document, text: str):
-    """Enqueue document for async LLM analysis."""
+def _enqueue_analysis(doc: Document, text: str):
+    """Enqueue document for async LLM analysis AND AI auto-categorization."""
     from app.services.task_queue import enqueue_analysis
     import asyncio
     asyncio.create_task(enqueue_analysis(doc.id, doc.title, text))
+
+    # Also run auto-categorization in background
+    async def _auto_cat():
+        from app.database.connection import async_session
+        try:
+            async with async_session() as db:
+                cat_result = await auto_categorize_document(db, doc.id, text, doc.title)
+                if cat_result.get("primary_category_id"):
+                    from sqlalchemy import select
+                    r = await db.execute(select(Document).where(Document.id == doc.id))
+                    if (d := r.scalar_one_or_none()):
+                        d.category_id = cat_result["primary_category_id"]
+                        # Update category count
+                        cat_r = await db.execute(
+                            select(Category).where(Category.id == cat_result["primary_category_id"])
+                        )
+                        if (c := cat_r.scalar_one_or_none()):
+                            c.document_count += 1
+                        # Store secondary cats
+                        import json
+                        if cat_result.get("secondary_category_ids"):
+                            d.secondary_categories = json.dumps(cat_result["secondary_category_ids"])
+                        await db.commit()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Auto-categorization failed: {e}")
+
+    asyncio.create_task(_auto_cat())
 
 
 @router.post("/file")
@@ -91,7 +120,7 @@ async def upload_file(
     await db.flush()
 
     # Enqueue async LLM analysis
-    _enqueue_if_text(doc, raw_text)
+    _enqueue_analysis(doc, raw_text)
 
     return {
         "status": "ok",
@@ -159,7 +188,7 @@ async def upload_url(
 
     await db.flush()
 
-    _enqueue_if_text(doc, raw_text)
+    _enqueue_analysis(doc, raw_text)
 
     return {
         "status": "ok",
