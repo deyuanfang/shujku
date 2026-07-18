@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
-import { X, Upload, Link, Pencil, FileText, Loader2, CheckCircle } from 'lucide-react';
+import { X, Upload, Link, Pencil, FileText, Loader2, CheckCircle, Mic } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useUIStore, useDocumentStore } from '../../store';
 import { uploadFile, uploadURL, uploadNote } from '../../services/api';
 import { showToast } from '../common/Toast';
+import VoiceRecorder from './VoiceRecorder';
 
-type TabType = 'file' | 'url' | 'note';
+type TabType = 'file' | 'url' | 'note' | 'voice';
 
 export default function UploadModal() {
   const closeUpload = useUIStore((s) => s.closeUpload);
@@ -71,6 +72,7 @@ export default function UploadModal() {
     { key: 'file', icon: Upload, label: '文件上传' },
     { key: 'url', icon: Link, label: '网页链接' },
     { key: 'note', icon: Pencil, label: '快速笔记' },
+    { key: 'voice', icon: Mic, label: '语音录入' },
   ];
 
   return (
@@ -173,6 +175,8 @@ export default function UploadModal() {
               </button>
             </div>
           )}
+
+          {activeTab === 'voice' && <VoiceRecorder />}
 
           {/* Upload progress / result */}
           {uploading && (
