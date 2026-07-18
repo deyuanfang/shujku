@@ -4,64 +4,57 @@ import './DotField.css';
 const TWO_PI = Math.PI * 2;
 
 const DotField = memo(({
-  dotRadius = 1.5,
-  dotSpacing = 14,
-  cursorRadius = 500,
-  cursorForce = 0.1,
-  bulgeOnly = true,
-  bulgeStrength = 67,
-  glowRadius = 160,
-  sparkle = false,
-  waveAmplitude = 0,
-  gradientFrom = 'rgba(99, 102, 241, 0.25)',
-  gradientTo = 'rgba(139, 92, 246, 0.15)',
-  glowColor = '#0f0f23',
-  ...rest
+  dotRadius = 1.2, dotSpacing = 22, cursorRadius = 400, bulgeStrength = 60,
+  glowRadius = 140, sparkle = false, waveAmplitude = 0.5,
+  gradientFrom = 'rgba(99, 102, 241, 0.18)', gradientTo = 'rgba(139, 92, 246, 0.10)',
+  glowColor = '#0f0f23', ...rest
 }) => {
-  const canvasRef = useRef(null);
-  const glowRef = useRef(null);
-  const dotsRef = useRef([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glowRef = useRef<SVGCircleElement>(null);
+  const dotsRef = useRef<any[]>([]);
   const mouseRef = useRef({ x: -9999, y: -9999, prevX: -9999, prevY: -9999, speed: 0 });
-  const rafRef = useRef(null);
+  const rafRef = useRef<number | null>(null);
   const sizeRef = useRef({ w: 0, h: 0, offsetX: 0, offsetY: 0 });
   const glowOpacity = useRef(0);
   const engagement = useRef(0);
-  const propsRef = useRef({});
-  propsRef.current = { dotRadius, dotSpacing, cursorRadius, cursorForce, bulgeOnly, bulgeStrength, sparkle, waveAmplitude, gradientFrom, gradientTo };
-  const rebuildRef = useRef(null);
-  const glowIdRef = useRef(`dot-field-glow-${Math.random().toString(36).slice(2, 9)}`);
+  const propsRef = useRef<any>({});
+  propsRef.current = { dotRadius, dotSpacing, cursorRadius, bulgeStrength, sparkle, waveAmplitude, gradientFrom, gradientTo };
+  const glowIdRef = useRef(`df-${Math.random().toString(36).slice(2, 7)}`);
+  const frameCount = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const glowEl = glowRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let resizeTimer;
+    let resizeTimer: any;
+    let speedTimer: any;
+    let disposed = false;
 
-    function resize() {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(doResize, 100);
-    }
+    function resize() { clearTimeout(resizeTimer); resizeTimer = setTimeout(doResize, 150); }
 
     function doResize() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
+      if (disposed || !canvas) return;
+      const parent = canvas.parentElement;
+      if (!parent) return;
+      const rect = parent.getBoundingClientRect();
+      const w = rect.width || window.innerWidth;
+      const h = rect.height || window.innerHeight;
+      if (w < 10 || h < 10) return;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       sizeRef.current = { w, h, offsetX: rect.left + window.scrollX, offsetY: rect.top + window.scrollY };
       buildDots(w, h);
     }
 
-    function buildDots(w, h) {
+    function buildDots(w: number, h: number) {
       const p = propsRef.current;
       const step = p.dotRadius + p.dotSpacing;
-      const cols = Math.floor(w / step);
-      const rows = Math.floor(h / step);
+      const cols = Math.floor(w / step) || 1;
+      const rows = Math.floor(h / step) || 1;
       const padX = (w % step) / 2;
       const padY = (h % step) / 2;
       const dots = new Array(rows * cols);
@@ -70,93 +63,81 @@ const DotField = memo(({
         for (let col = 0; col < cols; col++) {
           const ax = padX + col * step + step / 2;
           const ay = padY + row * step + step / 2;
-          dots[idx++] = { ax, ay, sx: ax, sy: ay, vx: 0, vy: 0, x: ax, y: ay };
+          dots[idx++] = { ax, ay, sx: ax, sy: ay, x: ax, y: ay };
         }
       }
       dotsRef.current = dots;
     }
 
-    function onMouseMove(e) {
+    function onMouseMove(e: MouseEvent) {
       const s = sizeRef.current;
       mouseRef.current.x = e.pageX - s.offsetX;
       mouseRef.current.y = e.pageY - s.offsetY;
     }
 
-    function updateMouseSpeed() {
+    function onVisibility() {
+      if (document.hidden) {
+        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      } else if (!rafRef.current && !disposed) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    }
+
+    function tick() {
+      if (disposed) return;
+      frameCount.current++;
+      const dots = dotsRef.current;
       const m = mouseRef.current;
-      const dx = m.prevX - m.x;
-      const dy = m.prevY - m.y;
+      const { w, h } = sizeRef.current;
+      if (w === 0 || h === 0) { rafRef.current = requestAnimationFrame(tick); return; }
+      const p = propsRef.current;
+      const len = dots.length;
+      const t = frameCount.current * 0.02;
+
+      // Engagement
+      const dx = m.prevX - m.x, dy = m.prevY - m.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       m.speed += (dist - m.speed) * 0.5;
       if (m.speed < 0.001) m.speed = 0;
       m.prevX = m.x; m.prevY = m.y;
-    }
-
-    const speedInterval = setInterval(updateMouseSpeed, 20);
-    let frameCount = 0;
-
-    function tick() {
-      frameCount++;
-      const dots = dotsRef.current;
-      const m = mouseRef.current;
-      const { w, h } = sizeRef.current;
-      const p = propsRef.current;
-      const len = dots.length;
-      const t = frameCount * 0.02;
-      const targetEngagement = Math.min(m.speed / 5, 1);
-      engagement.current += (targetEngagement - engagement.current) * 0.06;
+      const te = Math.min(m.speed / 5, 1);
+      engagement.current += (te - engagement.current) * 0.06;
       if (engagement.current < 0.001) engagement.current = 0;
       const eng = engagement.current;
-      glowOpacity.current += (eng - glowOpacity.current) * 0.08;
 
-      if (glowEl) {
-        glowEl.setAttribute('cx', m.x);
-        glowEl.setAttribute('cy', m.y);
-        glowEl.style.opacity = glowOpacity.current;
-      }
+      glowOpacity.current += (eng - glowOpacity.current) * 0.08;
+      if (glowEl) { glowEl.setAttribute('cx', String(m.x)); glowEl.setAttribute('cy', String(m.y)); glowEl.style.opacity = String(glowOpacity.current); }
 
       ctx.clearRect(0, 0, w, h);
       const grad = ctx.createLinearGradient(0, 0, w, h);
-      grad.addColorStop(0, p.gradientFrom);
-      grad.addColorStop(1, p.gradientTo);
+      grad.addColorStop(0, p.gradientFrom); grad.addColorStop(1, p.gradientTo);
       ctx.fillStyle = grad;
-      const cr = p.cursorRadius;
-      const crSq = cr * cr;
-      const rad = p.dotRadius / 2;
+      const cr = p.cursorRadius, crSq = cr * cr, rad = p.dotRadius / 2;
 
       ctx.beginPath();
       for (let i = 0; i < len; i++) {
         const d = dots[i];
-        const dx = m.x - d.ax;
-        const dy = m.y - d.ay;
-        const distSq = dx * dx + dy * dy;
+        const ddx = m.x - d.ax, ddy = m.y - d.ay;
+        const distSq = ddx * ddx + ddy * ddy;
+
         if (distSq < crSq && eng > 0.01) {
           const dist = Math.sqrt(distSq);
           const tf = 1 - dist / cr;
           const push = tf * tf * p.bulgeStrength * eng;
-          const angle = Math.atan2(dy, dx);
+          const angle = Math.atan2(ddy, ddx);
           d.sx += (d.ax - Math.cos(angle) * push - d.sx) * 0.15;
           d.sy += (d.ay - Math.sin(angle) * push - d.sy) * 0.15;
         } else {
-          d.sx += (d.ax - d.sx) * 0.1;
-          d.sy += (d.ay - d.sy) * 0.1;
+          d.sx += (d.ax - d.sx) * 0.08;
+          d.sy += (d.ay - d.sy) * 0.08;
         }
 
-        let drawX = d.sx;
-        let drawY = d.sy;
+        let drawX = d.sx, drawY = d.sy;
         if (p.waveAmplitude > 0) {
-          drawY += Math.sin(d.ax * 0.03 + t) * p.waveAmplitude;
-          drawX += Math.cos(d.ay * 0.03 + t * 0.7) * p.waveAmplitude * 0.5;
+          drawY += Math.sin(d.ax * 0.02 + t) * p.waveAmplitude;
         }
-        if (p.sparkle) {
-          const hash = ((i * 2654435761) ^ (frameCount >> 3)) >>> 0;
-          const r = (hash % 100) < 3 ? rad * 1.8 : rad;
-          ctx.moveTo(drawX + r, drawY);
-          ctx.arc(drawX, drawY, r, 0, TWO_PI);
-        } else {
-          ctx.moveTo(drawX + rad, drawY);
-          ctx.arc(drawX, drawY, rad, 0, TWO_PI);
-        }
+        ctx.moveTo(drawX + rad, drawY);
+        ctx.arc(drawX, drawY, rad, 0, TWO_PI);
       }
       ctx.fill();
       rafRef.current = requestAnimationFrame(tick);
@@ -165,34 +146,26 @@ const DotField = memo(({
     doResize();
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', onMouseMove, { passive: true });
+    document.addEventListener('visibilitychange', onVisibility);
     rafRef.current = requestAnimationFrame(tick);
 
-    rebuildRef.current = () => {
-      const { w, h } = sizeRef.current;
-      if (w > 0 && h > 0) buildDots(w, h);
-    };
-
     return () => {
-      cancelAnimationFrame(rafRef.current);
-      clearInterval(speedInterval);
-      clearTimeout(resizeTimer);
+      disposed = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      clearTimeout(resizeTimer); clearInterval(speedTimer);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
-
-  useEffect(() => {
-    rebuildRef.current?.();
-  }, [dotRadius, dotSpacing]);
 
   return (
     <div className="dot-field-container" {...rest}>
       <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
-      <svg ref={useRef(null)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
         <defs>
           <radialGradient id={glowIdRef.current}>
-            <stop offset="0%" stopColor={glowColor} />
-            <stop offset="100%" stopColor="transparent" />
+            <stop offset="0%" stopColor={glowColor} /><stop offset="100%" stopColor="transparent" />
           </radialGradient>
         </defs>
         <circle ref={glowRef} cx="-9999" cy="-9999" r={glowRadius} fill={`url(#${glowIdRef.current})`} style={{ opacity: 0 }} />

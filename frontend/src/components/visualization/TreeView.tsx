@@ -19,17 +19,19 @@ export default function TreeView({ data, onNodeClick, height = 600 }: Props) {
 
     const width = svgRef.current.clientWidth || 900;
     const h = height;
-    const margin = { top: 30, right: 120, bottom: 30, left: 40 };
+    const margin = { top: 40, right: 60, bottom: 80, left: 60 };
+    const innerW = width - margin.left - margin.right;
+    const innerH = h - margin.top - margin.bottom;
 
     const hierarchy = d3.hierarchy(data, (d: any) => d.children);
-    const treeLayout = d3.tree<TreeNode>()
-      .size([h - margin.top - margin.bottom, width - margin.left - margin.right]);
+    // Upward tree: root at bottom, branches go up
+    const treeLayout = d3.tree<TreeNode>().size([innerW, innerH]);
     const root = treeLayout(hierarchy);
 
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Links with curved paths
+    // Links — vertical curves going upward
     g.selectAll('.tree-link')
       .data(root.links())
       .enter()
@@ -39,25 +41,21 @@ export default function TreeView({ data, onNodeClick, height = 600 }: Props) {
       .attr('stroke', '#374151')
       .attr('stroke-width', 1.5)
       .attr('d', (d: any) => {
-        const sx = d.source.y;
-        const sy = d.source.x;
-        const tx = d.target.y;
-        const ty = d.target.x;
-        return `M${sx},${sy}C${(sx + tx) / 2},${sy} ${(sx + tx) / 2},${ty} ${tx},${ty}`;
+        const sx = d.source.x, sy = innerH - d.source.y;  // invert Y
+        const tx = d.target.x, ty = innerH - d.target.y;
+        return `M${sx},${sy}C${sx},${(sy + ty) / 2} ${tx},${(sy + ty) / 2} ${tx},${ty}`;
       });
 
-    // Node groups
+    // Node groups — x is horizontal, y inverted (bottom-up)
     const nodeGroup = g.selectAll('.tree-node')
       .data(root.descendants())
       .enter()
       .append('g')
       .attr('class', 'tree-node')
-      .attr('transform', (d: any) => `translate(${d.y},${d.x})`)
+      .attr('transform', (d: any) => `translate(${d.x},${innerH - d.y})`)  // root at bottom
       .style('cursor', 'pointer')
       .on('click', (_e: any, d: any) => {
-        if (d.data.type === 'document') {
-          onNodeClick?.(d.data);
-        }
+        if (d.data.type === 'document') onNodeClick?.(d.data);
       });
 
     // Glow circles for categories
@@ -80,18 +78,15 @@ export default function TreeView({ data, onNodeClick, height = 600 }: Props) {
       .attr('stroke-width', (d: any) => d.data.type === 'category' ? 2.5 : 1.5)
       .attr('class', 'tree-circle');
 
-    // Labels
+    // Labels — above nodes for upward tree
     nodeGroup
       .append('text')
-      .attr('dy', (d: any) => (d.children && d.children.length > 0 ? -18 : 16))
-      .attr('dx', (d: any) => (d.children && d.children.length > 0 ? 0 : 8))
-      .attr('text-anchor', (d: any) => (d.children && d.children.length > 0 ? 'middle' : 'start'))
+      .attr('dy', (d: any) => (d.children && d.children.length > 0 ? -14 : -10))
+      .attr('text-anchor', 'middle')
       .text((d: any) => {
         let label = d.data.label || '';
-        if (d.data.type === 'category' && d.data.count) {
-          label += ` (${d.data.count})`;
-        }
-        return label.length > 20 ? label.slice(0, 19) + '…' : label;
+        if (d.data.type === 'category' && d.data.count) label += ` (${d.data.count})`;
+        return label.length > 16 ? label.slice(0, 15) + '…' : label;
       })
       .attr('fill', (d: any) => d.data.type === 'category' ? '#e5e7eb' : '#9ca3af')
       .attr('font-size', (d: any) => d.data.type === 'category' ? '13px' : '11px')
