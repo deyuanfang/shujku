@@ -122,7 +122,7 @@ export default function UploadModal() {
               <Upload size={40} className="mx-auto mb-3 text-gray-500" />
               <p className="text-gray-300 font-medium">拖拽文件到此处，或点击选择</p>
               <p className="text-sm text-gray-500 mt-1">
-                支持 TXT、Markdown、PDF、图片 (最大 50MB)
+                支持 TXT、Markdown、PDF、图片、视频 (最大 50MB)
               </p>
             </div>
           )}

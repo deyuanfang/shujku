@@ -89,16 +89,40 @@ export default function GalaxyView({ nodes, edges, onNodeClick, height = 600 }: 
         .strength(0.3))
       .force('charge', d3.forceManyBody().strength((d: any) => {
         switch (d.type) {
-          case 'category': return -600;
-          case 'document': return -250;
-          case 'entity': return -100;
+          case 'category': return -800;
+          case 'document': return -120;
+          case 'entity': return -60;
           default: return -200;
         }
       }))
       .force('center', d3.forceCenter(width / 2, h / 2))
-      .force('collision', d3.forceCollide().radius((d: any) => (d.radius || 10) + 10))
-      .force('x', d3.forceX(width / 2).strength(0.03))
-      .force('y', d3.forceY(h / 2).strength(0.03));
+      .force('collision', d3.forceCollide().radius((d: any) => (d.radius || 10) + 8))
+      // Cluster force: documents orbit their category star
+      .force('cluster', (() => {
+        const centers: Record<string, { x: number; y: number }> = {};
+        function force(alpha: number) {
+          for (const d of nodes as any[]) {
+            if (d.type === 'document' && d.clusterId && centers[d.clusterId]) {
+              const c = centers[d.clusterId];
+              d.x += (c.x - d.x) * alpha * 0.03;
+              d.y += (c.y - d.y) * alpha * 0.03;
+            }
+          }
+        }
+        force.initialize = (ns: any[]) => {
+          // Place categories in a circle
+          const cats = ns.filter((d: any) => d.type === 'category');
+          const cx = width / 2, cy = h / 2;
+          const radius = Math.min(width, h) * 0.3;
+          cats.forEach((cat: any, i: number) => {
+            const angle = (2 * Math.PI * i) / Math.max(cats.length, 1) - Math.PI / 2;
+            cat.fx = cx + Math.cos(angle) * radius;
+            cat.fy = cy + Math.sin(angle) * radius;
+            centers[cat.clusterId || cat.refId] = { x: cat.fx, y: cat.fy };
+          });
+        };
+        return force;
+      })());
 
     // Draw links
     const link = mainGroup.append('g')
