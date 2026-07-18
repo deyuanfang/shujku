@@ -33,16 +33,10 @@ async def _ensure_provider() -> Optional[BaseAIProvider]:
     except Exception:
         db_settings = {}
 
-    prov_name = db_settings.get("llm_provider", "") or getattr(settings, "llm_provider", "") or "anthropic"
+    prov_name = db_settings.get("llm_provider", "") or getattr(settings, "llm_provider", None) or "anthropic"
     api_key = db_settings.get("llm_api_key", "") or settings.llm_api_key or ""
     model = db_settings.get("llm_model", "") or settings.llm_model or "claude-sonnet-4-20250514"
     base_url = db_settings.get("ollama_url", "") or ""
-
-    # Sync DB settings back to runtime config
-    if api_key and not settings.llm_api_key:
-        settings.llm_api_key = api_key
-    if prov_name and not getattr(settings, 'llm_provider', ''):
-        setattr(settings, 'llm_provider', prov_name)
 
     if prov_name != "ollama" and not api_key:
         logger.warning("No AI API key configured. Set API key in Settings page.")

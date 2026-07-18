@@ -16,8 +16,10 @@ router = APIRouter()
 
 
 class SettingsUpdate(BaseModel):
+    llm_provider: Optional[str] = None
     llm_api_key: Optional[str] = None
     llm_model: Optional[str] = None
+    ollama_url: Optional[str] = None
     auto_analyze: Optional[bool] = None
     language: Optional[str] = None
     theme: Optional[str] = None
