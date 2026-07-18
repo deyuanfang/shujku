@@ -60,8 +60,11 @@ def _get_lan_ip() -> str:
     except Exception:
         pass
     return "127.0.0.1"
+
+
+def _cleanup_sessions():
     """Remove expired sessions."""
-    import time
+    now = time.time()
     now = time.time()
     expired = [
         sid for sid, s in _sessions.items()
