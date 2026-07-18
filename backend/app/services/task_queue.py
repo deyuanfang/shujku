@@ -29,12 +29,21 @@ def _now() -> str:
 
 
 async def start_worker():
-    """Start the background analysis worker."""
+    """Start the background analysis worker with auto-restart."""
     global _worker_task, _running
     if _running:
         return
     _running = True
-    _worker_task = asyncio.create_task(_analysis_worker())
+
+    async def _worker_wrapper():
+        while _running:
+            try:
+                await _analysis_worker()
+            except Exception as e:
+                logger.error(f"Analysis worker crashed: {e}, restarting in 2s...")
+                await asyncio.sleep(2)
+
+    _worker_task = asyncio.create_task(_worker_wrapper())
     logger.info("Analysis worker started")
 
 
@@ -101,7 +110,6 @@ async def _analysis_worker():
             else:
                 await log_action(_as, document_id, "analyze", "auto", "", "failed",
                     duration_ms=duration, error=llm_result.get("error", ""))
-            )
 
             # Run Data Organizer (数据整理大师)
             organizer_result = None

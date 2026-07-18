@@ -24,13 +24,12 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _enqueue_analysis(doc: Document, text: str):
+async def _enqueue_analysis(doc: Document, text: str):
     """Enqueue document for async LLM analysis AND AI auto-categorization."""
     from app.services.task_queue import enqueue_analysis
-    import asyncio
-    asyncio.create_task(enqueue_analysis(doc.id, doc.title, text))
+    await enqueue_analysis(doc.id, doc.title, text)
 
-    # Also run auto-categorization in background
+    # Also run auto-categorization as stored background task
     async def _auto_cat():
         from app.database.connection import async_session
         try:
@@ -41,13 +40,11 @@ def _enqueue_analysis(doc: Document, text: str):
                     r = await db.execute(select(Document).where(Document.id == doc.id))
                     if (d := r.scalar_one_or_none()):
                         d.category_id = cat_result["primary_category_id"]
-                        # Update category count
                         cat_r = await db.execute(
                             select(Category).where(Category.id == cat_result["primary_category_id"])
                         )
                         if (c := cat_r.scalar_one_or_none()):
                             c.document_count += 1
-                        # Store secondary cats
                         import json
                         if cat_result.get("secondary_category_ids"):
                             d.secondary_categories = json.dumps(cat_result["secondary_category_ids"])
@@ -56,7 +53,16 @@ def _enqueue_analysis(doc: Document, text: str):
             import logging
             logging.getLogger(__name__).warning(f"Auto-categorization failed: {e}")
 
-    asyncio.create_task(_auto_cat())
+    import asyncio
+    task = asyncio.create_task(_auto_cat())
+    # Store reference to prevent GC
+    _bg_tasks = getattr(_enqueue_analysis, '_bg_tasks', None)
+    if _bg_tasks is None:
+        _bg_tasks = []
+        setattr(_enqueue_analysis, '_bg_tasks', _bg_tasks)
+    _bg_tasks.append(task)
+    # Cleanup completed tasks
+    _bg_tasks[:] = [t for t in _bg_tasks if not t.done()]
 
 
 @router.post("/file")
@@ -120,7 +126,7 @@ async def upload_file(
     await db.flush()
 
     # Enqueue async LLM analysis
-    _enqueue_analysis(doc, raw_text)
+    await _enqueue_analysis(doc, raw_text)
 
     return {
         "status": "ok",
@@ -188,7 +194,7 @@ async def upload_url(
 
     await db.flush()
 
-    _enqueue_analysis(doc, raw_text)
+    await _enqueue_analysis(doc, raw_text)
 
     return {
         "status": "ok",
