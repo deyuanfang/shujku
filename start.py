@@ -125,7 +125,7 @@ def main():
     print(f"\n  Starting backend on port {BACKEND_PORT}...")
     backend_proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app",
-         "--host", "127.0.0.1", "--port", str(BACKEND_PORT),
+         "--host", "0.0.0.0", "--port", str(BACKEND_PORT),
          "--log-level", "warning"],
         cwd=os.path.join(BASE_DIR, "backend"),
         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
