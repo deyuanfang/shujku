@@ -35,16 +35,50 @@ async def get_ai_providers():
 @router.post("/configure")
 async def configure_ai(provider: str = Query(...), api_key: str = Query(""),
                         model: str = Query(""), base_url: str = Query("")):
-    """Configure the active AI provider."""
+    """Configure and test the AI provider. Returns detailed status."""
     config = {"api_key": api_key, "model": model}
-    if base_url:
-        config["base_url"] = base_url
+    if base_url: config["base_url"] = base_url
+
+    # Quick validation
+    if provider != "ollama" and not api_key:
+        return {"status": "error", "message": "请输入 API Key", "available": False}
+
+    # Try to create and test provider
+    error_detail = ""
     try:
         p = configure_provider(provider, config)
-        available = await p.is_available()
-        return {"status": "ok", "provider": provider, "model": p.model, "available": available}
     except ValueError as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": f"不支持的提供商: {provider}", "available": False}
+
+    # Test availability with timeout
+    import asyncio
+    try:
+        available = await asyncio.wait_for(p.is_available(), timeout=15.0)
+    except asyncio.TimeoutError:
+        return {"status": "error", "message": "连接超时(15秒),请检查网络或API Key", "available": False, "provider": provider, "model": p.model}
+    except Exception as e:
+        error_detail = str(e)[:200]
+        return {"status": "error", "message": f"连接失败: {error_detail}", "available": False, "provider": provider, "model": p.model}
+
+    if available:
+        # Also save to settings table so it persists
+        try:
+            from app.database.connection import async_session
+            from sqlalchemy import text
+            import json
+            async with async_session() as db:
+                for key, val in [("llm_provider", provider), ("llm_api_key", api_key), ("llm_model", model)]:
+                    json_val = json.dumps(val, ensure_ascii=False)
+                    await db.execute(
+                        text("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (:k, :v, datetime('now'))"),
+                        {"k": key, "v": json_val})
+                await db.commit()
+        except Exception:
+            pass
+
+        return {"status": "ok", "provider": provider, "model": p.model, "available": True, "message": f"✅ {provider}/{p.model} 连接成功"}
+    else:
+        return {"status": "error", "message": f"连接验证失败: {provider}/{p.model} 返回异常,请检查API Key", "available": False, "provider": provider, "model": p.model}
 
 
 @router.post("/review-categories")

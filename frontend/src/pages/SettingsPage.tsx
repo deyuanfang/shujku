@@ -44,9 +44,17 @@ export default function SettingsPage() {
   const handleTest = async () => {
     setTesting(true);
     try {
-      await api.post('/organize/configure', null, { params: { provider, api_key: apiKey, model, base_url: provider === 'ollama' ? ollamaUrl : '' } });
-      showToast('success', '连接成功', `${provider}/${model} 可用`);
-    } catch (err: any) { showToast('error', '连接失败'); }
+      const { data } = await api.post('/organize/configure', null, {
+        params: { provider, api_key: apiKey, model, base_url: provider === 'ollama' ? ollamaUrl : '' },
+      });
+      if (data.available) {
+        showToast('success', '连接成功', data.message || `${provider}/${model} 可用`);
+      } else {
+        showToast('error', '连接失败', data.message || '未知错误');
+      }
+    } catch (err: any) {
+      showToast('error', '请求失败', err.response?.data?.message || err.message || '网络错误');
+    }
     setTesting(false);
   };
 
