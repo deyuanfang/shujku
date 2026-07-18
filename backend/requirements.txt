@@ -16,6 +16,7 @@ numpy==2.2.*
 
 # LLM
 anthropic==0.42.*
+openai>=1.0.0
 
 # Content extraction
 PyMuPDF==1.25.*

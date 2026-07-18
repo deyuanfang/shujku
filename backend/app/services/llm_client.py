@@ -29,8 +29,16 @@ async def _ensure_provider() -> Optional[BaseAIProvider]:
         from sqlalchemy import text
         async with async_session() as db:
             result = await db.execute(text("SELECT key, value FROM settings WHERE key IN ('llm_provider', 'llm_api_key', 'llm_model', 'ollama_url')"))
-            db_settings = {row[0]: json.loads(row[1]) if row[1] else "" for row in result.fetchall() if row[1]}
-    except Exception:
+            db_settings = {}
+            for row in result.fetchall():
+                if row[1]:
+                    try:
+                        db_settings[row[0]] = json.loads(row[1])
+                    except (json.JSONDecodeError, TypeError):
+                        db_settings[row[0]] = row[1]
+            logger.info(f"DB settings loaded: provider={db_settings.get('llm_provider','?')}, key_len={len(db_settings.get('llm_api_key','') or '')}")
+    except Exception as e:
+        logger.warning(f"Failed to load DB settings: {e}")
         db_settings = {}
 
     prov_name = db_settings.get("llm_provider", "") or getattr(settings, "llm_provider", None) or "anthropic"

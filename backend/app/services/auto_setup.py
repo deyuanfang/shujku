@@ -64,7 +64,7 @@ TOOL_REGISTRY = {
         "pip_package": "anthropic", "import_check": "anthropic",
     },
     "openai": {
-        "name": "OpenAI SDK (GPT)", "category": "python", "auto_installable": True,
+        "name": "OpenAI SDK (GPT/DeepSeek)", "category": "python", "auto_installable": True,
         "pip_package": "openai", "import_check": "openai",
     },
     "httpx": {
