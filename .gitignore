@@ -11,6 +11,7 @@ backend/data/*.db
 backend/data/files/
 backend/data/uploads/
 backend/data/thumbnails/
+backend/data/.clear_key
 
 # Node
 node_modules/

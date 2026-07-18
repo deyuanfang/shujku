@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
-import { X, Upload, Link, Pencil, FileText, Loader2 } from 'lucide-react';
+import { X, Upload, Link, Pencil, FileText, Loader2, CheckCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useUIStore, useDocumentStore } from '../../store';
 import { uploadFile, uploadURL, uploadNote } from '../../services/api';
+import { showToast } from '../common/Toast';
 
 type TabType = 'file' | 'url' | 'note';
 
@@ -17,22 +18,28 @@ export default function UploadModal() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Auto-close on success after brief display
+  const handleSuccess = (res: any, count = 1) => {
+    setResult(res);
+    fetchDocuments();
+    const label = res.title || `文件`;
+    showToast('success', `上传成功: ${label}`, res.category ? `分类: ${res.category} · 关键词: ${(res.keywords || []).slice(0, 3).join(', ')}` : '');
+    if (res.status === 'ok') {
+      setTimeout(() => closeUpload(), 1500);
+    }
+  };
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setUploading(true);
-    setError(null);
+    setUploading(true); setError(null);
     try {
       for (const file of acceptedFiles) {
-        const formData = new FormData();
-        formData.append('file', file);
+        const formData = new FormData(); formData.append('file', file);
         const res = await uploadFile(formData);
-        setResult(res);
+        if (res.status === 'duplicate') { setResult(res); showToast('warning', '文件已存在', file.name); }
+        else handleSuccess(res);
       }
-      fetchDocuments();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || err.message);
-    } finally {
-      setUploading(false);
-    }
+    } catch (err: any) { setError(err.response?.data?.detail || err.message); }
+    finally { setUploading(false); }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -42,32 +49,22 @@ export default function UploadModal() {
 
   const handleURLSubmit = async () => {
     if (!url.trim()) return;
-    setUploading(true);
-    setError(null);
+    setUploading(true); setError(null);
     try {
       const res = await uploadURL(url.trim());
-      setResult(res);
-      fetchDocuments();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || err.message);
-    } finally {
-      setUploading(false);
-    }
+      res.status === 'duplicate' ? showToast('warning', '内容已存在') : handleSuccess(res);
+    } catch (err: any) { setError(err.response?.data?.detail || err.message); }
+    finally { setUploading(false); }
   };
 
   const handleNoteSubmit = async () => {
     if (!note.trim()) return;
-    setUploading(true);
-    setError(null);
+    setUploading(true); setError(null);
     try {
       const res = await uploadNote(note.trim(), noteTitle.trim() || undefined);
-      setResult(res);
-      fetchDocuments();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || err.message);
-    } finally {
-      setUploading(false);
-    }
+      res.status === 'duplicate' ? showToast('warning', '相同笔记已存在') : handleSuccess(res);
+    } catch (err: any) { setError(err.response?.data?.detail || err.message); }
+    finally { setUploading(false); }
   };
 
   const tabs: { key: TabType; icon: any; label: string }[] = [
