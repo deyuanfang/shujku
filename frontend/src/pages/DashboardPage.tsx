@@ -5,7 +5,8 @@ import {
   Plus, Search, Zap, ArrowRight, Sparkles,
   FileCode, FileImage, Globe, StickyNote,
 } from 'lucide-react';
-import { useStatsStore, useDocumentStore, useUIStore } from '../store';
+import { useStatsStore, useDocumentStore, useCategoryStore, useUIStore } from '../store';
+import Folder from '../components/common/Folder';
 
 const TYPE_ICONS: Record<string, any> = {
   text: FileText, markdown: FileCode, pdf: FileText,
@@ -24,6 +25,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const categories = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
   const stats = useStatsStore((s) => s.stats);
   const fetchStats = useStatsStore((s) => s.fetchStats);
   const documents = useDocumentStore((s) => s.documents);
@@ -33,8 +36,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchStats();
+    fetchCategories();
     fetchDocuments({ page_size: 8, sort_by: 'created_at', sort_order: 'desc' });
   }, []);
+
+  const CATEGORY_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#06b6d4'];
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
@@ -145,28 +151,49 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Categories */}
-      {stats?.top_categories && stats.top_categories.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <FolderTree size={18} className="text-emerald-400" /> 分类概览
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {stats.top_categories.map((cat, i) => (
-              <button
-                key={cat.name}
-                onClick={() => navigate(`/documents?category_id=${cat.name}`)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-700/50
-                           bg-gray-800/30 hover:bg-gray-800/50 hover:border-gray-600 transition-all text-sm"
-              >
-                <span className="w-2 h-2 rounded-full" style={{ background: ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6'][i % 5] }} />
-                <span className="text-gray-300">{cat.name}</span>
-                <span className="text-xs text-gray-600">{cat.count}</span>
-              </button>
-            ))}
+      {/* Category Folders */}
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <FolderTree size={18} className="text-emerald-400" /> 分类文件夹
+        </h2>
+
+        {categories.length === 0 ? (
+          <div className="glass-panel p-8 text-center">
+            <FolderTree size={32} className="mx-auto mb-2 text-gray-600" />
+            <p className="text-gray-500 text-sm">暂无分类，上传内容后自动创建</p>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-wrap gap-6">
+            {categories.slice(0, 8).map((cat, i) => (
+              <div key={cat.id} className="flex flex-col items-center">
+                <Folder
+                  color={cat.color || CATEGORY_COLORS[i % CATEGORY_COLORS.length]}
+                  size={1.1}
+                  label={cat.name}
+                  count={cat.document_count}
+                  items={[
+                    <span key="1" className="text-[9px] text-center px-1">{cat.document_count} 篇</span>,
+                    <span key="2" className="text-[9px] text-center px-1">{cat.name}</span>,
+                    <span key="3" className="text-[8px] text-center px-1">打开</span>,
+                  ]}
+                  onClick={() => navigate(`/documents?category_id=${cat.id}`)}
+                />
+              </div>
+            ))}
+            {/* New category folder */}
+            <div className="flex flex-col items-center">
+              <div onClick={() => {
+                const n = prompt('新分类名称:');
+                if (n) useCategoryStore.getState().createCategory(n);
+              }}>
+                <Folder color="#4b5563" size={1.1} label="新建分类" items={[
+                  <span key="1" className="text-[20px]">+</span>,
+                ]} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
