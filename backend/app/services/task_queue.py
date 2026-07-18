@@ -66,17 +66,14 @@ async def enqueue_analysis(document_id: str, title: str, content: str):
         "document_id": document_id,
         "title": title,
         "content": content,
-        "retry_count": 0,
-        "max_retries": 3,
     })
     logger.info(f"Enqueued analysis for document: {document_id}")
 
 
 async def _analysis_worker():
-    """Worker loop that processes analysis tasks from the queue."""
+    """Worker loop — processes analysis tasks with retry."""
     while _running:
         try:
-            # Wait for a task (with timeout to allow checking _running)
             try:
                 task = await asyncio.wait_for(_task_queue.get(), timeout=1.0)
             except asyncio.TimeoutError:
@@ -85,89 +82,38 @@ async def _analysis_worker():
             document_id = task["document_id"]
             title = task["title"]
             content = task["content"]
-            retry_count = task.get("retry_count", 0)
-            max_retries = task.get("max_retries", 3)
 
-            logger.info(f"Starting analysis for: {document_id} (attempt {retry_count + 1}/{max_retries + 1})")
-
-            from app.services.ai_action_logger import log_action
-            from app.database.connection import async_session as _as
-            import time as _time
-            start_time = _time.time()
-
-            # Run LLM analysis with extended timeout wrapper
-            llm_result = await analyze_document(
-                title=title, content=content,
-                tasks=["summarize", "extract_entities", "extract_relationships", "suggest_tags"],
-            )
-            duration = int((_time.time() - start_time) * 1000)
-
-            # Log result
-            provider = "auto"
-            if "error" not in llm_result:
-                await log_action(_as, document_id, "analyze", provider,
-                    getattr(settings, 'llm_model', ''), "success",
-                    duration_ms=duration,
-                    summary=f"summary={'YES' if llm_result.get('summary') else 'NO'}, entities={len(llm_result.get('entities',[]))}, tags={len(llm_result.get('suggested_tags',[]))}"
+            success = False
+            for attempt in range(3):
+                logger.info(f"AI analysis [{document_id[:8]}] attempt {attempt+1}/3")
+                llm_result = await analyze_document(
+                    title=title, content=content,
+                    tasks=["summarize", "extract_entities", "extract_relationships", "suggest_tags"],
                 )
+                if "error" not in llm_result:
+                    success = True
+                    break
+                if attempt < 2:
+                    await asyncio.sleep(5)
+
+            if success:
+                async with async_session() as db:
+                    try:
+                        await _store_analysis_results(db, document_id, llm_result)
+                        await db.commit()
+                        logger.info(f"AI analysis complete: {document_id[:8]}")
+                    except Exception as e:
+                        await db.rollback()
+                        logger.error(f"Store failed: {e}")
             else:
-                err = llm_result.get("error", "")
-                await log_action(_as, document_id, "analyze", "auto", "", "failed",
-                    duration_ms=duration, error=err)
-
-                # Retry on failure
-                if retry_count < max_retries:
-                    wait = (retry_count + 1) * 5  # 5s, 10s, 15s backoff
-                    logger.info(f"Retrying {document_id} in {wait}s (attempt {retry_count + 2})")
-                    await asyncio.sleep(wait)
-                    await _task_queue.put({
-                        "document_id": document_id, "title": title, "content": content,
-                        "retry_count": retry_count + 1, "max_retries": max_retries,
-                    })
-                    _task_queue.task_done()
-                    continue
-
-            # Run Data Organizer (数据整理大师)
-            organizer_result = None
-            try:
-                from app.services.data_organizer import organize_new_document
-                from app.database.models import Category, Entity, Document as DocModel
-                async with async_session() as org_db:
-                    cats = (await org_db.execute(select(Category))).scalars().all()
-                    ents = (await org_db.execute(select(Entity))).scalars().all()
-                    docs = (await org_db.execute(
-                        select(DocModel).where(DocModel.is_active == 1).order_by(DocModel.created_at.desc()).limit(10)
-                    )).scalars().all()
-                    organizer_result = await organize_new_document(
-                        title=title, content=content,
-                        existing_categories=[{"name": c.name, "document_count": c.document_count} for c in cats],
-                        existing_entities=[{"name": e.name, "type": e.type} for e in ents],
-                        recent_documents=[{"title": d.title} for d in docs if d.title != title],
-                    )
-            except Exception as e:
-                logger.warning(f"Organizer skipped: {e}")
-
-            if "error" in llm_result:
-                logger.warning(f"LLM analysis skipped for {document_id}: {llm_result['error']}")
-                _task_queue.task_done()
-                continue
-
-            # Store results in database
-            async with async_session() as db:
-                try:
-                    await _store_analysis_results(db, document_id, llm_result)
-                    await db.commit()
-                    logger.info(f"Analysis complete for: {document_id}")
-                except Exception as e:
-                    await db.rollback()
-                    logger.error(f"Failed to store analysis for {document_id}: {e}")
+                logger.warning(f"AI analysis failed after 3 attempts: {document_id[:8]}")
 
             _task_queue.task_done()
 
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error(f"Analysis worker error: {e}")
+            logger.error(f"Worker error: {e}")
 
 
 async def _store_analysis_results(

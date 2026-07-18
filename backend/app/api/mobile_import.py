@@ -39,24 +39,34 @@ def _now() -> str:
 
 
 def _get_lan_ip() -> str:
-    """Detect the machine's LAN IP address."""
+    """Detect the machine's LAN IP address — try multiple methods."""
     import socket
+    # Method 1: connect to external address
     try:
-        # Connect to an external address to determine the active network interface
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(1)
+        s.settimeout(2)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
-        return ip
-    except Exception:
-        pass
-    # Fallback: iterate interfaces
-    try:
-        hostname = socket.gethostname()
-        ip = socket.gethostbyname(hostname)
         if ip and not ip.startswith("127."):
             return ip
+    except Exception:
+        pass
+    # Method 2: gethostbyname
+    try:
+        ip = socket.gethostbyname(socket.gethostname())
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    # Method 3: ifconfig approach
+    try:
+        import subprocess, re
+        out = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=5).stdout
+        for match in re.finditer(r"IPv4[^:]*:\s*(\d+\.\d+\.\d+\.\d+)", out):
+            ip = match.group(1)
+            if not ip.startswith("127.") and ip != "0.0.0.0":
+                return ip
     except Exception:
         pass
     return "127.0.0.1"

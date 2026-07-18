@@ -15,10 +15,10 @@ router = APIRouter()
 
 @router.get("/knowledge-tree")
 async def get_knowledge_tree(db: AsyncSession = Depends(get_db)):
-    """Build a knowledge-point tree: entities as branches, documents as leaves."""
+    """Build a knowledge-point tree from entities (or NLP keywords as fallback)."""
     import json
 
-    # Get all entities with their documents
+    # Get entities with documents
     ent_result = await db.execute(
         select(Entity, DocumentEntity, Document)
         .join(DocumentEntity, DocumentEntity.entity_id == Entity.id)
@@ -27,31 +27,59 @@ async def get_knowledge_tree(db: AsyncSession = Depends(get_db)):
     )
     rows = ent_result.fetchall()
 
-    # Group: entity → documents
+    # Build entity→docs map
     entity_docs: dict[str, dict] = {}
+    doc_with_entities: set = set()
     for entity, de, doc in rows:
+        doc_with_entities.add(doc.id)
         if entity.id not in entity_docs:
             entity_docs[entity.id] = {
-                "id": entity.id,
-                "label": entity.name,
-                "type": "entity",
-                "entity_type": entity.type,
-                "color": _entity_color(entity.type),
-                "children": [],
-                "doc_count": 0,
+                "id": entity.id, "label": entity.name, "type": "entity",
+                "entity_type": entity.type, "color": _entity_color(entity.type),
+                "children": [], "doc_count": 0,
             }
         entity_docs[entity.id]["children"].append({
-            "id": doc.id,
-            "label": doc.title,
-            "type": "document",
-            "content_type": doc.content_type,
-            "importance": doc.importance,
+            "id": doc.id, "label": doc.title, "type": "document",
+            "content_type": doc.content_type, "importance": doc.importance,
             "word_count": doc.word_count,
         })
         entity_docs[entity.id]["doc_count"] += 1
 
-    # Sort entities by doc count
-    sorted_entities = sorted(entity_docs.values(), key=lambda e: e["doc_count"], reverse=True)
+    # Get all docs without entities — build keyword-based tree
+    all_docs = (await db.execute(
+        select(Document).where(Document.is_active == 1)
+    )).scalars().all()
+
+    # Also extract NLP keywords from documents as fallback branches
+    keyword_docs: dict[str, dict] = {}
+    for doc in all_docs:
+        if doc.id in doc_with_entities:
+            continue  # already covered by entities
+        # Get keywords from document
+        kws = []
+        if doc.keywords:
+            try: kws = json.loads(doc.keywords) if isinstance(doc.keywords, str) else doc.keywords
+            except: pass
+        if not kws and doc.raw_text:
+            from app.services.nlp_pipeline import nlp_pipeline
+            kws = nlp_pipeline.extract_keywords(doc.raw_text, top_n=5)
+        for kw in kws[:3]:  # top 3 keywords per doc
+            if kw not in keyword_docs:
+                keyword_docs[kw] = {
+                    "id": f"kw-{kw}", "label": kw, "type": "entity",
+                    "entity_type": "concept", "color": "#8b5cf6",
+                    "children": [], "doc_count": 0,
+                }
+            keyword_docs[kw]["children"].append({
+                "id": doc.id, "label": doc.title, "type": "document",
+                "content_type": doc.content_type, "importance": doc.importance,
+                "word_count": doc.word_count,
+            })
+            keyword_docs[kw]["doc_count"] += 1
+
+    # Merge entity and keyword trees
+    all_entities = list(entity_docs.values()) + list(keyword_docs.values())
+    sorted_entities = sorted(all_entities, key=lambda e: e["doc_count"], reverse=True)
 
     # Group by entity type
     type_groups: dict[str, dict] = {}
@@ -59,46 +87,40 @@ async def get_knowledge_tree(db: AsyncSession = Depends(get_db)):
         etype = ent.get("entity_type", "other")
         if etype not in type_groups:
             type_groups[etype] = {
-                "id": f"type-{etype}",
-                "label": _type_label(etype),
-                "type": "category",
-                "color": _entity_color(etype),
-                "children": [],
+                "id": f"type-{etype}", "label": _type_label(etype),
+                "type": "category", "color": _entity_color(etype), "children": [],
             }
         type_groups[etype]["children"].append(ent)
 
     tree_children = list(type_groups.values())
 
-    # Add uncategorized docs (docs with no entities)
-    all_docs = (await db.execute(
-        select(Document).where(Document.is_active == 1)
-    )).scalars().all()
-    doc_with_entities = {doc.id for _, _, doc in rows}
-    uncategorized = [d for d in all_docs if d.id not in doc_with_entities]
-    if uncategorized:
-        uncat_children = [
-            {
-                "id": d.id, "label": d.title, "type": "document",
-                "content_type": d.content_type, "importance": d.importance,
-                "word_count": d.word_count,
-            }
-            for d in uncategorized[:30]
-        ]
+    # Docs not in any branch
+    all_doc_ids = doc_with_entities | {d.id for d in all_docs if any(
+        d.id in kw_ch.get("children", []) for kw_ch in keyword_docs.values()
+    )}
+    uncategorized = [d for d in all_docs if d.id not in all_doc_ids]
+    # Deduplicate
+    seen_ids = set()
+    uncat_unique = []
+    for d in uncategorized:
+        if d.id not in seen_ids:
+            seen_ids.add(d.id)
+            uncat_unique.append(d)
+
+    if uncat_unique:
         tree_children.append({
             "id": "uncategorized-knowledge",
-            "label": "未归类知识点",
-            "type": "category",
-            "color": "#6b7280",
-            "children": uncat_children,
+            "label": "其他知识点",
+            "type": "category", "color": "#6b7280",
+            "children": [
+                {"id": d.id, "label": d.title, "type": "document",
+                 "content_type": d.content_type, "importance": d.importance,
+                 "word_count": d.word_count}
+                for d in uncat_unique[:50]
+            ],
         })
 
-    return {
-        "tree": {
-            "id": "root",
-            "label": "知识体系",
-            "children": tree_children,
-        }
-    }
+    return {"tree": {"id": "root", "label": "知识体系", "children": tree_children}}
 
 
 def _entity_color(etype: str) -> str:
