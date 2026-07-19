@@ -50,18 +50,27 @@ async def configure_ai(provider: str = Query(...), api_key: str = Query(""),
     except ValueError as e:
         return {"status": "error", "message": f"不支持的提供商: {provider}", "available": False}
 
-    # Test availability with timeout
+    # Test availability with a simple HTTP call first (no SDK needed)
     import asyncio
+    try:
+        available = await asyncio.wait_for(_quick_test(provider, api_key, model, base_url), timeout=10.0)
+        if available:
+            return {"status": "ok", "provider": provider, "model": model or p.model, "available": True, "message": f"✅ {provider} 连接成功"}
+    except asyncio.TimeoutError:
+        pass  # fall through to SDK test
+    except Exception:
+        pass
+
+    # SDK-level test as fallback
     try:
         available = await asyncio.wait_for(p.is_available(), timeout=30.0)
     except asyncio.TimeoutError:
-        return {"status": "error", "message": "连接超时(30秒),请检查网络或API Key", "available": False, "provider": provider, "model": p.model}
+        return {"status": "error", "message": "连接超时(30秒)", "available": False, "provider": provider, "model": p.model}
     except Exception as e:
-        error_detail = str(e)[:200]
-        return {"status": "error", "message": f"连接失败: {error_detail}", "available": False, "provider": provider, "model": p.model}
+        return {"status": "error", "message": f"连接失败: {str(e)[:200]}", "available": False, "provider": provider, "model": p.model}
 
     if available:
-        # Also save to settings table so it persists
+        # Save to settings table...
         try:
             from app.database.connection import async_session
             from sqlalchemy import text
@@ -149,3 +158,35 @@ async def organize_document(doc_id: str, db: AsyncSession = Depends(get_db)):
     await db.flush()
 
     return {"status": "ok", "document_id": doc_id, "result": org_result}
+
+
+async def _quick_test(provider: str, api_key: str, model: str, base_url: str) -> bool:
+    """Simple HTTP connectivity test — no SDK needed."""
+    import urllib.request, json
+
+    endpoints = {
+        "deepseek": ("https://api.deepseek.com/v1/models", "Bearer"),
+        "openai": ("https://api.openai.com/v1/models", "Bearer"),
+        "anthropic": ("https://api.anthropic.com/v1/messages", "x-api-key"),
+    }
+
+    if provider == "ollama":
+        try:
+            url = f"{base_url or 'http://localhost:11434'}/api/tags"
+            urllib.request.urlopen(url, timeout=5)
+            return True
+        except Exception:
+            return False
+
+    ep = endpoints.get(provider)
+    if not ep:
+        return False
+
+    url, auth_type = ep
+    headers = {"Authorization": f"Bearer {api_key}"} if auth_type == "Bearer" else {"x-api-key": api_key}
+    try:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        resp = urllib.request.urlopen(req, timeout=10)
+        return resp.status in (200, 401)  # 401 = key invalid but reachable, 200 = OK
+    except Exception:
+        return False
