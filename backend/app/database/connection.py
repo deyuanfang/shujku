@@ -22,23 +22,9 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
-    """Create all tables and FTS5 index. Call on startup."""
-    from app.database.models import Base, FTS5_SETUP_SQL
-    from app.services.ai_action_logger import AIActionLog  # ensure table creation
+    """Create all tables. FTS5 is created lazily on first search."""
+    from app.database.models import Base
+    from app.services.ai_action_logger import AIActionLog  # noqa — ensure table registration
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-    # FTS5 virtual table — use raw aiosqlite connection
-    import aiosqlite
-    import os
-    db_path = settings.database_url.replace("sqlite+aiosqlite:///", "")
-    async with aiosqlite.connect(db_path) as db:
-        for stmt in FTS5_SETUP_SQL.strip().split(";"):
-            stmt = stmt.strip()
-            if stmt:
-                try:
-                    await db.execute(stmt)
-                except Exception:
-                    pass  # Already exists
-        await db.commit()

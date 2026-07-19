@@ -8,6 +8,27 @@ from app.database.connection import get_db
 from app.database.models import Document
 
 router = APIRouter()
+_fts5_initialized = False
+
+
+async def _ensure_fts5(db: AsyncSession):
+    """Lazily create FTS5 virtual table on first search."""
+    global _fts5_initialized
+    if _fts5_initialized:
+        return
+    try:
+        from app.database.models import FTS5_SETUP_SQL
+        for stmt in FTS5_SETUP_SQL.strip().split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                try:
+                    await db.execute(text(stmt + ";"))
+                except Exception:
+                    pass
+        await db.commit()
+        _fts5_initialized = True
+    except Exception:
+        pass
 
 
 @router.get("")
@@ -18,6 +39,7 @@ async def search_documents(
     db: AsyncSession = Depends(get_db),
 ):
     """Full-text search across documents using FTS5 and LIKE fallback."""
+    await _ensure_fts5(db)
     results = []
     total = 0
 
