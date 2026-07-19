@@ -75,11 +75,40 @@ async def update_settings(body: SettingsUpdate, db: AsyncSession = Depends(get_d
         # Update runtime config
         if key == "llm_api_key":
             app_settings.llm_api_key = value or ""
-            import app.services.llm_client as llm_mod
-            llm_mod._client = None
         elif key == "llm_model" and value:
             app_settings.llm_model = value
         elif key == "auto_analyze":
             app_settings.auto_analyze = bool(value)
 
+    # After saving all settings, try to configure the AI provider
+    await _configure_from_db(db)
+
     return {"status": "ok", "message": "设置已保存"}
+
+
+async def _configure_from_db(db: AsyncSession):
+    """Read settings from DB and configure the active AI provider."""
+    try:
+        from app.services.ai_provider import configure_provider
+        all_rows = (await db.execute(select(Setting))).scalars().all()
+        db_settings = {}
+        for row in all_rows:
+            try:
+                db_settings[row.key] = json.loads(row.value)
+            except (json.JSONDecodeError, TypeError):
+                db_settings[row.key] = row.value
+
+        prov = db_settings.get("llm_provider", "")
+        key = db_settings.get("llm_api_key", "")
+        model = db_settings.get("llm_model", "")
+        url = db_settings.get("ollama_url", "")
+
+        if prov and (key or prov == "ollama"):
+            config = {"api_key": key, "model": model}
+            if url:
+                config["base_url"] = url
+            configure_provider(prov, config)
+            import logging
+            logging.getLogger(__name__).info(f"AI provider configured from settings: {prov}")
+    except Exception:
+        pass

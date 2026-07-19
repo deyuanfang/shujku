@@ -23,7 +23,15 @@ async def lifespan(app: FastAPI):
     from app.services.task_queue import start_worker
     await start_worker()
 
-    # Folder watcher is available on demand (POST /api/v1/monitor/watcher/start)
+    # Auto-configure AI provider from saved settings
+    try:
+        from app.database.connection import async_session
+        from app.api.settings import _configure_from_db
+        async with async_session() as db:
+            await _configure_from_db(db)
+    except Exception:
+        pass
+
     yield
 
     # Shutdown: stop background worker
