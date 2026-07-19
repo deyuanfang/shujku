@@ -91,7 +91,11 @@ async def upload_file(
 
     # Extract content
     extracted = await extract_content(content_type=content_type, file_path=saved_path)
-    raw_text = extracted["raw_text"]
+    raw_text = extracted.get("raw_text", "") or ""
+
+    # Fallback: if extraction returned nothing, use filename + metadata
+    if not raw_text.strip():
+        raw_text = f"[文件] {file.filename}\n类型: {content_type}\n大小: {extracted.get('char_count', 0)} 字符\n(内容提取失败或文件为空)"
 
     # NLP analysis
     cat_result = await db.execute(select(Category))
