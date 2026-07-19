@@ -132,6 +132,7 @@ async def get_document(
         source_url=doc.source_url,
         original_hash=doc.original_hash,
         raw_text=doc.raw_text,
+        summary=doc.summary,
         word_count=doc.word_count,
         char_count=doc.char_count,
         category_id=doc.category_id,

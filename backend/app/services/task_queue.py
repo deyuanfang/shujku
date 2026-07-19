@@ -84,15 +84,30 @@ async def _analysis_worker():
             content = task["content"]
 
             success = False
+            import time as _time
             for attempt in range(3):
+                t0 = _time.time()
                 logger.info(f"AI analysis [{document_id[:8]}] attempt {attempt+1}/3")
                 llm_result = await analyze_document(
                     title=title, content=content,
                     tasks=["summarize", "extract_entities", "extract_relationships", "suggest_tags"],
                 )
+                dur = int((_time.time() - t0) * 1000)
+
                 if "error" not in llm_result:
                     success = True
+                    # Log success
+                    from app.services.ai_action_logger import log_action as _log
+                    from app.database.connection import async_session as _sess
+                    await _log(_sess, document_id, "analyze", "deepseek", "", "success",
+                               duration_ms=dur, summary=f"summary={bool(llm_result.get('summary'))}, tags={len(llm_result.get('suggested_tags',[]))}")
                     break
+                else:
+                    # Log failure
+                    from app.services.ai_action_logger import log_action as _log
+                    from app.database.connection import async_session as _sess
+                    await _log(_sess, document_id, "analyze", "auto", "", "failed",
+                               duration_ms=dur, error=llm_result.get("error", ""))
                 if attempt < 2:
                     await asyncio.sleep(5)
 
